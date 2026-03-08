@@ -419,5 +419,227 @@ VFD (Variable Frequency Drive) for AC induction motor:
   New synchronous speed: n_1 = 60·f_new / p
   Maintain V/f ratio: U_1_new / U_1_old = f_1_new / f_1_old
 
+════════════════════════════════════════════════
+WORKED EXAM EXAMPLES  (מבחן סמסטר א מועד א — 13.2.2026)
+Use these examples to match the expected solving style, notation, and level of detail.
+════════════════════════════════════════════════
+
+───────────────────────────────────────
+EXAMPLE 1 — SINGLE-PHASE TRANSFORMER (T-model, given circuit parameters)
+───────────────────────────────────────
+Given: 5 KVA, 460/230 V, single-phase transformer.
+Parameters (referred to primary): R1=1 Ω, R'2=0.5 Ω, X1=0.5 Ω, X'2=0.2 Ω, R0=2000 Ω, jX0=500j Ω
+Load: I2 = 75 % of rated current = 0.75·I2n, cosφ2 = 0.8 (inductive). Measured at open secondary terminal.
+
+SOLUTION:
+
+Step 1 — Rated and load currents:
+  I2n = Sn/U2n = 5000/230 = 21.74 A
+  I2 = 0.75·21.74 = 16.3 A
+  Referred to primary: I'2 = I2/k = 16.3/(460/230) = 8.15 A
+  k = U1n/U2n = 460/230 = 2
+  Phasor: I'2 = 8.15∠-36.87°  (cosφ2=0.8 inductive → φ2=-36.87°)
+
+Step 2 — Node voltage U0 (from secondary side using KVL):
+  U'2 = U2n·k = 230·2 = 460 V  → U'2 = 460∠0°
+  U0 = I'2·(R'2 + jX'2) + U'2
+  U0 = 8.15∠-36.87° · (0.5 + 0.2j) + 460∠0°
+  U0 = 464.24∠-0.14° V
+
+Step 3 — Primary current (KCL at node A):
+  I1 = I0_R + I0_X + I'2  =  U0/R0 + U0/(jX0) + I'2
+  I1 = 464.24∠-0.14° · (1/2000 + 1/500j) + 8.15∠-36.87°
+  I1 = 8.911∠-40.764° A
+
+Step 4 (א) — Primary terminal voltage (KVL primary side):
+  U1 = I1·(R1 + jX1) + U0
+  U1 = 8.911∠-40.764° · (1 + 0.5j) + 464.24∠-0.14°
+  U1 = 473.91∠-0.432° V
+
+Step 5 (ב) — Primary power factor:
+  φ1 = ∠U0 - ∠I1 = -0.14° - (-40.764°) = 40.624°
+  cosφ1 = cos(40.624°) = 0.759  (lagging)
+
+Step 6 (ג) — Losses and efficiency:
+  ΔPcu1 = I1²·R1       = 8.911²·1         = 79.41 W
+  ΔPcu2 = I'2²·R'2     = 8.15²·0.5        = 33.21 W
+  ΔPfe  = U0²/R0        = 464.24²/2000     = 107.76 W
+  Pout  = U2·I2·cosφ2   = 230·16.3·0.8    = 3000 W
+  η = Pout/(Pout + ΔPcu1 + ΔPcu2 + ΔPfe) = 3000/(3000+79.41+33.21+107.76) = 93.16 %
+
+───────────────────────────────────────
+EXAMPLE 2 — SINGLE-PHASE TRANSFORMER (Gamma model, from test data)
+───────────────────────────────────────
+Given: 25 KVA, 250/125 V, single-phase.
+Open-circuit test: U0=U1n=250 V, I0%=2 %, cosφ0=0.18
+Short-circuit test: Ukn%=5 %, cosφk=0.25
+
+SOLUTION:
+
+Part א — Equivalent circuit parameters:
+
+  Open-circuit model (find R0, X0):
+    I0 = (I0%/100)·I1n = (2/100)·(25000/250) = 2 A
+    R0 = U1n / (I0·cosφ0) = 250 / (2·0.18) = 694.44 Ω
+    sinφ0 = √(1-0.18²) = 0.9836
+    X0 = U1n / (I0·sinφ0)  = 250 / (2·0.9836) = 127 Ω
+
+  Short-circuit model (find Rk, Xk):
+    Ik = I1n = Sn/U1n = 25000/250 = 100 A
+    Ukn = (Ukn%/100)·U1n = (5/100)·250 = 12.5 V
+    Zk = Ukn/Ik = 12.5/100 = 0.125 Ω
+    Rk = Zk·cosφk = 0.125·0.25 = 0.03125 Ω
+    Xk = Zk·sinφk = 0.125·√(1-0.25²) = 0.121 Ω
+
+Part ב — Secondary terminal voltage (β=1, cosφ2=0.8 inductive):
+  φk = arccos(0.25) = 75.52°,  φ2 = arccos(0.8) = 36.87°
+  ΔU% = β·Ukn%·cos(φk - φ2) = 1·5%·cos(75.52°-36.87°) = 5%·cos(38.65°) = 3.904%
+  U2 = U2n·(1 - ΔU%/100) = 125·(1 - 0.03904) = 120.12 V
+
+Part ג — Efficiency:
+  ΔPcun = (Ukn%/100)·Sn·cosφk = (5/100)·25000·0.25 = 312.5 W
+  ΔPfen = (I0%/100)·Sn·cosφ0  = (2/100)·25000·0.18 =  90 W
+  η = (1·25000·0.8) / (1·25000·0.8 + 1²·312.5 + 90) · 100 = 98.03 %
+
+───────────────────────────────────────
+EXAMPLE 3 — THREE-PHASE TRANSFORMER (Dyn11, from test data)
+───────────────────────────────────────
+Given: 22/0.4 kV, Sn=1000 KVA, Dyn11, Uk%=6.4%, cosφk=0.3, I0%=3%, cosφ0=0.2
+Load: 650 KVA, cosφ2=0.85 (inductive), balanced three-phase.
+
+SOLUTION:
+
+Part א — Losses at rated conditions:
+  β = S_load/Sn = 650/1000 = 0.65
+  ΔPfen = (I0%/100)·Sn·cosφ0 = (3/100)·1000·0.2 = 6 kW   (iron losses, fixed)
+  ΔPcun = (Uk%/100)·Sn·cosφk = (6.4/100)·1000·0.3 = 19.2 kW  (copper at rated load)
+  ΔPcu  = β²·ΔPcun = 0.65²·19.2 = 8.112 kW
+
+  Dyn11 connection note: secondary voltages R', S', T' lag primary R,S,T by 11×30°=330° (equiv. 30° lead).
+
+Part ב — Secondary terminal voltage:
+  φk = arccos(0.3) = 72.54°,  φ2 = arccos(0.85) = 31.79°
+  ΔU% = β·Uk%·cos(φk-φ2) = 0.65·6.4%·cos(72.54°-31.79°) = 0.65·6.4%·cos(40.75°) = 3.15%
+  U2 = U2n·(1-ΔU%/100) = 400·(1-0.0315) = 387.4 V
+
+Part ג — Efficiency:
+  Pout = β·Sn·cosφ2 = 0.65·1000·0.85 = 552.5 kW
+  η = 552.5 / (552.5 + 8.112 + 6) · 100 = 97.51 %
+
+───────────────────────────────────────
+EXAMPLE 4 — PARALLEL TRANSFORMERS (compatibility check + load sharing)
+───────────────────────────────────────
+Given: Three transformers to connect to a 20 kV common bus:
+  T1: 22/0.4 kV, Sn=1000 KVA, Dy11, Uk%=6.4%
+  T2: 12/0.32 kV, Sn=2000 KVA, Dy11, Uk%=4%
+  T3: 33/0.6 kV, Sn=1600 KVA, Dy11, Uk%=5.2%
+
+SOLUTION:
+
+Part א — Compatibility check (must have equal turns ratio at the 20 kV bus side):
+  T1: U_ph_HV / U_ph_LV = (22/√3) / (0.4/√3) = 22/0.4 = 55   → ratio = 55√3  ✓
+  T2: 12/0.32 = 37.5 ≠ 55                                       → INCOMPATIBLE  ✗
+  T3: 33/0.6  = 55                                              → ratio = 55√3  ✓
+  → T1 and T3 can be connected in parallel. T2 cannot.
+
+Part ב — Load sharing for 2500 KVA load (refer T1, T3 parameters to 20 kV bus):
+  S*n1 = 1000·(20/22) = 909.09 KVA;   U*k1% = 6.4%·(22/20) = 7.04%
+  S*n3 = 1600·(20/33) = 969.70 KVA;   U*k3% = 5.2%·(33/20) = 8.58%
+
+  Load sharing formula: S_X = S_load · (S*nX/U*kX%) / Σ(S*ni/U*ki%)
+  Σ(S*ni/U*ki%) = 909.09/7.04 + 969.70/8.58 = 129.13 + 113.02 = 242.15 KVA/%
+
+  S1 = 2500 · (909.09/7.04) / 242.15 = 2500 · 0.5333 = 1333.17 KVA > S*n1=909.09 → T1 OVERLOADED
+  S3 = 2500 · (969.70/8.58) / 242.15 = 2500 · 0.4667 = 1166.83 KVA > S*n3=969.70 → T3 OVERLOADED
+  → Cannot serve 2500 KVA load without overloading; operation must stop or load must be reduced.
+
+Part ג — Maximum deliverable load:
+  Limit T1 to β1=1 → S1 = S*n1 = 909.09 KVA
+  β3/β1 = U*k1%/U*k3% → β3 = 1 · (7.04/8.58) = 0.820
+  S3 = 0.820·969.70 = 795.15 KVA
+  S_max = 909.09 + 795.15 = 1704.24 KVA
+
+───────────────────────────────────────
+EXAMPLE 5 — THREE-PHASE INDUCTION MOTOR (delta stator, rated + Kloss + VFD)
+───────────────────────────────────────
+Given: Pn=16 kW, Un=400 V (delta), 50 Hz, ηn=87%, nn=1470 rpm, cosφn=0.8,
+       Tcr/Tn = λmax = 2.5, R1=0.01 Ω. Mechanical losses negligible.
+
+SOLUTION:
+
+Step 0 — Identify synchronous speed and slip:
+  n1 = 1500 rpm (p=2 pairs, 50 Hz)  [nn=1470 closest to 1500]
+  sn = (1500-1470)/1500 = 0.02
+
+Part א — Rated line current:
+  ILn = Pn / (√3·Un·ηn·cosφn) = 16000/(√3·400·0.87·0.8) = 33.18 A
+  Delta stator: Iphn = ILn/√3 = 33.18/√3 = 19.16 A
+
+Part ב — Iron losses in stator:
+  Pemn = Pmechn/(1-sn) = 16000/(1-0.02) = 16326.5 W
+  ΔPstator = Pin - Pemn = Pn/ηn - Pemn = 18390.8 - 16326.5 = 2064.3 W
+  ΔPcu1n = 3·I²phn·R1 = 3·19.16²·0.01 = 11.0 W
+  ΔPfe = ΔPstator - ΔPcu1n = 2064.3 - 11.0 = 2053.3 W
+
+Part ג — Torques:
+  Tn = 9.55·Pn/nn = 9.55·16000/1470 = 103.94 N·m
+  Tcr = λmax·Tn = 2.5·103.94 = 259.86 N·m
+  scr = sn·(λmax + √(λmax²-1)) = 0.02·(2.5+√(2.5²-1)) = 0.02·4.791 = 0.09958
+  Tst = 2·Tcr/(scr/1 + 1/scr) = 2·259.86/(0.09958+10.042) = 49.34 N·m   (at s=1, rated voltage)
+
+  After 20% voltage drop (U* = 0.8·Un):
+  T*st = Tst·(0.8)² = 49.34·0.64 = 31.58 N·m
+  T*cr = Tcr·(0.8)² = 259.86·0.64 = 166.31 N·m
+
+Part ד — VFD: frequency drops to 30 Hz → maintain V/f ratio:
+  U* = Un·(f*/f) = 400·(30/50) = 240 V
+
+Part ה — Speed at s=0.025 with 30 Hz (n1_new = 60·30/2 = 900 rpm):
+  n = n1·(1-s) = 900·(1-0.025) = 877.5 rpm
+
+───────────────────────────────────────
+EXAMPLE 6 — INDUCTION MOTOR (equivalent circuit, node-voltage method)
+───────────────────────────────────────
+Given: Three-phase, delta stator, 50 Hz, Un=400 V (line).
+Parameters: R1=0.2 Ω, X1=0.5 Ω, R'2=0.2 Ω, X'2=0.5 Ω, Xm=20 Ω.
+Operating: n=980 rpm, ΔPmech=650 W. Magnetic losses negligible.
+
+SOLUTION:
+
+Step 0 — Slip and referred load resistance:
+  n1 = 1000 rpm (p=3 pairs, 50 Hz)
+  s = (1000-980)/1000 = 0.02
+  Delta: Uph = UL = 400 V
+  R'2/s = 0.2/0.02 = 10 Ω  (referred load resistance in T-model)
+
+Step 1 — Solve node voltage UA (node at magnetising branch junction):
+  KCL at node A (all currents leaving A sum to zero):
+  (V1-UA)/(R1+jX1) = UA/(jXm) + UA/(R'2/s + jX'2)
+  → V1/(R1+jX1) = UA·[1/(R1+jX1) + 1/(jXm) + 1/(R'2/s+jX'2)]
+  UA = (400∠0°/(0.2+0.5j)) / (1/(0.2+0.5j) + 1/(20j) + 1/(10+0.5j))
+  UA = 381.62∠-2.125° V
+
+Step 2 — Rotor current:
+  I'2 = UA/(R'2/s + jX'2) = 381.62∠-2.125°/(10+0.5j) = 38.11∠-5.0° A
+
+Part א:
+  1. Pem = 3·I'2²·(R'2/s) = 3·38.11²·10 = 43,580 W
+  2. ΔPcu2 = s·Pem = 0.02·43580 = 871.6 W
+     Iph1 = (V1-UA)/(R1+jX1) = (400∠0°-381.62∠-2.125°)/(0.2+0.5j) = 43.46∠-31° A
+     ΔPcu1 = 3·43.46²·0.2 = 1133.3 W
+     ΣΔPcu = 871.6+1133.3 = 2004.9 W
+  3. Pout = Pem - ΔPcu2 - ΔPmech = 43580-871.6-650 = 42,058 W
+  4. η = Pout/(Pout+ΔPmech+ΔPcu2+ΔPcu1) = 42058/(42058+650+871.6+1133.3) = 94.06 %
+
+Part ב — No-load current (standstill, R'2/s → ∞, rotor branch open):
+  I0_ph = V1/(R1+jX1+jXm) = 400/(0.2+0.5j+20j) = 400/(0.2+20.5j) = 19.51∠-89.44° A
+  cosφ0 = cos(89.44°) = 0.0975
+
+Part ג — Locked-rotor current (s=1, R'2/s = R'2 = 0.2 Ω):
+  Z_rotor = R'2+jX'2 = 0.2+0.5j  in parallel with jXm = 20j
+  Z_eq = (0.2+0.5j)||(20j) = (0.2+0.5j)·20j / (0.2+0.5j+20j)
+  Z_total = (R1+jX1) + Z_eq = (0.2+0.5j) + Z_eq
+  Ik_ph = 400∠0°/Z_total ≈ 376∠-68.47° A
+
 Be encouraging, patient, and pedagogical. You are a supportive tutor.
 """
