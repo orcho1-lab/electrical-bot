@@ -1,3 +1,4 @@
+import base64
 import os
 from typing import Optional
 
@@ -29,6 +30,8 @@ model = genai.GenerativeModel(
 class ChatRequest(BaseModel):
     message: str
     conversation_id: Optional[str] = None
+    image_data: Optional[str] = None       # base64-encoded image
+    image_mime_type: Optional[str] = None  # e.g. "image/jpeg"
 
 
 @app.post("/api/chat")
@@ -42,10 +45,9 @@ async def chat(request: ChatRequest):
     # Load existing history from DB
     history_rows = db.get_messages(conversation_id)
 
-    # Build Gemini-compatible history (exclude the latest user message)
+    # Build Gemini-compatible history (text only)
     gemini_history = []
     for msg in history_rows:
-        # Gemini uses "model" for assistant role
         role = msg["role"] if msg["role"] == "user" else "model"
         gemini_history.append({
             "role": role,
@@ -55,12 +57,26 @@ async def chat(request: ChatRequest):
     # Start chat session with history
     chat_session = model.start_chat(history=gemini_history)
 
-    # Save user message to DB
-    db.save_message(conversation_id, "user", request.message)
+    # Build message parts (text + optional image)
+    parts = []
+    if request.image_data:
+        img_bytes = base64.b64decode(request.image_data)
+        parts.append({"mime_type": request.image_mime_type or "image/jpeg", "data": img_bytes})
+    if request.message:
+        parts.append(request.message)
+    message_to_send = parts if len(parts) > 1 else (parts[0] if parts else request.message)
+
+    # Save user message to DB (text representation)
+    user_text_for_db = request.message
+    if request.image_data and not request.message:
+        user_text_for_db = "[תמונה]"
+    elif request.image_data:
+        user_text_for_db = f"[תמונה] {request.message}"
+    db.save_message(conversation_id, "user", user_text_for_db)
 
     # Send to Gemini
     try:
-        response = chat_session.send_message(request.message)
+        response = chat_session.send_message(message_to_send)
         assistant_text = response.text
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Gemini API error: {str(e)}")
@@ -70,7 +86,7 @@ async def chat(request: ChatRequest):
 
     # Auto-title the conversation from the first user message
     if len(history_rows) == 0:
-        title = request.message[:60] + ("..." if len(request.message) > 60 else "")
+        title = user_text_for_db[:60] + ("..." if len(user_text_for_db) > 60 else "")
         db.update_conversation_title(conversation_id, title)
 
     return {

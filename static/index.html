@@ -281,6 +281,8 @@
       font-size: 14px;
       line-height: 1.7;
       max-width: calc(100% - 50px);
+      direction: rtl;
+      unicode-bidi: plaintext;
     }
 
     .message.user .bubble {
@@ -307,7 +309,8 @@
     .bubble p:last-child { margin-bottom: 0; }
 
     .bubble ul, .bubble ol {
-      padding-right: 20px;
+      padding-right: 24px;
+      padding-left: 0;
       margin-bottom: 8px;
     }
 
@@ -357,10 +360,41 @@
 
     .bubble tr:hover td { background: rgba(255,255,255,0.03); }
 
-    /* KaTeX display */
+    /* KaTeX - always LTR */
+    .bubble .katex,
+    .bubble .katex-display,
+    .bubble .katex-html {
+      direction: ltr;
+      unicode-bidi: embed;
+      text-align: left;
+    }
+
     .bubble .katex-display {
       overflow-x: auto;
-      padding: 4px 0;
+      padding: 8px 0;
+      display: block;
+      text-align: center !important;
+    }
+
+    /* Paragraphs and lists — RTL */
+    .bubble p,
+    .bubble li,
+    .bubble h1, .bubble h2, .bubble h3 {
+      direction: rtl;
+      unicode-bidi: plaintext;
+    }
+
+    /* Code blocks — LTR */
+    .bubble pre,
+    .bubble code {
+      direction: ltr;
+      unicode-bidi: embed;
+      text-align: left;
+    }
+
+    /* Tables */
+    .bubble table {
+      direction: rtl;
     }
 
     /* Typing indicator */
@@ -394,6 +428,51 @@
       background: var(--bg);
     }
 
+    /* Image preview strip */
+    #image-preview-wrap {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      padding: 8px 12px;
+      background: var(--sidebar-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+
+    #image-preview-wrap.visible { display: flex; }
+
+    #image-preview {
+      width: 64px;
+      height: 64px;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    #image-preview-name {
+      flex: 1;
+      font-size: 12px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #image-remove-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 1;
+      padding: 2px 4px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+
+    #image-remove-btn:hover { color: #ef4444; }
+
     #input-wrapper {
       display: flex;
       align-items: flex-end;
@@ -424,6 +503,25 @@
 
     #user-input::placeholder { color: var(--text-muted); }
 
+    #attach-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      transition: color 0.2s, background 0.2s;
+      flex-shrink: 0;
+    }
+
+    #attach-btn:hover { color: var(--text); background: rgba(255,255,255,0.07); }
+    #attach-btn.has-image { color: #34d399; }
+
     #send-btn {
       background: var(--accent);
       border: none;
@@ -448,6 +546,16 @@
       color: var(--text-muted);
       text-align: center;
       margin-top: 8px;
+    }
+
+    /* Image inside message bubble */
+    .bubble img.msg-image {
+      max-width: 260px;
+      max-height: 260px;
+      border-radius: 8px;
+      display: block;
+      margin-bottom: 6px;
+      border: 1px solid var(--border);
     }
 
     /* ========== MOBILE ========== */
@@ -529,7 +637,18 @@
     </div>
 
     <div id="input-area">
+      <!-- Hidden file input — no capture attr so user can pick gallery OR camera -->
+      <input type="file" id="image-input" accept="image/*" style="display:none" onchange="onImageSelected(event)" />
+
+      <!-- Image preview strip (shown when image is attached) -->
+      <div id="image-preview-wrap">
+        <img id="image-preview" src="" alt="תצוגה מקדימה" />
+        <span id="image-preview-name"></span>
+        <button id="image-remove-btn" onclick="removeImage()" title="הסר תמונה">✕</button>
+      </div>
+
       <div id="input-wrapper">
+        <button id="attach-btn" onclick="document.getElementById('image-input').click()" title="צרף תמונה">📎</button>
         <textarea
           id="user-input"
           rows="1"
@@ -539,7 +658,7 @@
         ></textarea>
         <button id="send-btn" onclick="sendMessage()" title="שלח">➤</button>
       </div>
-      <div id="input-hint">Enter לשליחה · Shift+Enter לשורה חדשה</div>
+      <div id="input-hint">Enter לשליחה · Shift+Enter לשורה חדשה · 📎 לצרף תמונה</div>
     </div>
   </div>
 
@@ -549,6 +668,7 @@
   // ========== STATE ==========
   let currentConvId = null;
   let isLoading = false;
+  let pendingImage = null;  // { base64: string, mimeType: string, dataUrl: string, name: string }
 
   // ========== INIT ==========
   document.addEventListener('DOMContentLoaded', () => {
@@ -689,19 +809,56 @@
     el.style.height = Math.min(el.scrollHeight, 160) + 'px';
   }
 
+  // ========== IMAGE HANDLING ==========
+  function onImageSelected(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target.result;
+      // dataUrl = "data:image/jpeg;base64,XXXX..."
+      const [header, base64] = dataUrl.split(',');
+      const mimeType = header.match(/:(.*?);/)[1];
+
+      pendingImage = { base64, mimeType, dataUrl, name: file.name };
+
+      // Show preview
+      document.getElementById('image-preview').src = dataUrl;
+      document.getElementById('image-preview-name').textContent = file.name;
+      document.getElementById('image-preview-wrap').classList.add('visible');
+      document.getElementById('attach-btn').classList.add('has-image');
+    };
+    reader.readAsDataURL(file);
+
+    // Reset input so same file can be re-selected
+    event.target.value = '';
+  }
+
+  function removeImage() {
+    pendingImage = null;
+    document.getElementById('image-preview-wrap').classList.remove('visible');
+    document.getElementById('attach-btn').classList.remove('has-image');
+    document.getElementById('image-preview').src = '';
+  }
+
   async function sendMessage() {
     const input = document.getElementById('user-input');
     const text = input.value.trim();
-    if (!text || isLoading) return;
+    if (!text && !pendingImage || isLoading) return;
 
     // Clear welcome
     const welcome = document.getElementById('welcome');
     if (welcome) welcome.remove();
 
-    // Show user message
-    appendMessage('user', text);
+    // Show user message (with image thumbnail if attached)
+    appendMessage('user', text, pendingImage ? pendingImage.dataUrl : null);
     input.value = '';
     input.style.height = 'auto';
+
+    // Capture and clear pending image
+    const imageToSend = pendingImage;
+    removeImage();
 
     // Show typing indicator
     const typingId = showTyping();
@@ -710,10 +867,19 @@
     document.getElementById('send-btn').disabled = true;
 
     try {
+      const body = {
+        message: text,
+        conversation_id: currentConvId
+      };
+      if (imageToSend) {
+        body.image_data = imageToSend.base64;
+        body.image_mime_type = imageToSend.mimeType;
+      }
+
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, conversation_id: currentConvId })
+        body: JSON.stringify(body)
       });
 
       if (!res.ok) {
@@ -743,18 +909,24 @@
     }
   }
 
-  function appendMessage(role, content) {
+  function appendMessage(role, content, imageDataUrl = null) {
     const messagesEl = document.getElementById('messages');
 
     const msgEl = document.createElement('div');
     msgEl.className = `message ${role}`;
 
     const avatar = role === 'user' ? '👤' : '⚡';
-    const bubbleContent = role === 'bot' ? renderMarkdown(content) : escapeHtml(content).replace(/\n/g, '<br>');
+    let bubbleContent = '';
+    if (imageDataUrl) {
+      bubbleContent += `<img class="msg-image" src="${imageDataUrl}" alt="תמונה מצורפת" />`;
+    }
+    bubbleContent += role === 'bot'
+      ? renderMarkdown(content)
+      : escapeHtml(content).replace(/\n/g, '<br>');
 
     msgEl.innerHTML = `
       <div class="avatar">${avatar}</div>
-      <div class="bubble">${bubbleContent}</div>
+      <div class="bubble" dir="auto">${bubbleContent}</div>
     `;
 
     messagesEl.appendChild(msgEl);
