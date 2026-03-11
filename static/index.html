@@ -18,18 +18,19 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg: #0f1117;
-      --sidebar-bg: #161b22;
-      --chat-bg: #0f1117;
-      --bubble-user: #1d4ed8;
-      --bubble-bot: #1e2433;
-      --border: #30363d;
-      --text: #e6edf3;
-      --text-muted: #8b949e;
-      --accent: #2563eb;
-      --accent-hover: #1d4ed8;
-      --input-bg: #161b22;
+      --bg: #0b0f1a;
+      --sidebar-bg: #111827;
+      --chat-bg: #0b0f1a;
+      --bubble-user: #2563eb;
+      --bubble-bot: #1a2236;
+      --border: #1e293b;
+      --text: #f1f5f9;
+      --text-muted: #64748b;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --input-bg: #111827;
       --sidebar-width: 280px;
+      --glow: rgba(59, 130, 246, 0.08);
     }
 
     html, body {
@@ -60,42 +61,54 @@
     }
 
     #sidebar-header {
-      padding: 16px;
+      padding: 14px;
       border-bottom: 1px solid var(--border);
     }
 
     #sidebar-header h2 {
-      font-size: 14px;
+      font-size: 12px;
       color: var(--text-muted);
       margin-bottom: 10px;
       font-weight: 600;
       letter-spacing: 0.5px;
+      text-transform: uppercase;
     }
 
     #new-chat-btn {
       width: 100%;
-      padding: 10px 14px;
-      background: var(--accent);
-      color: white;
-      border: none;
+      padding: 9px 14px;
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
       border-radius: 8px;
       cursor: pointer;
-      font-size: 14px;
-      font-weight: 600;
-      transition: background 0.2s;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.2s;
       display: flex;
       align-items: center;
       gap: 8px;
       justify-content: center;
     }
 
-    #new-chat-btn:hover { background: var(--accent-hover); }
+    #new-chat-btn:hover { background: rgba(255,255,255,0.05); border-color: var(--accent); }
 
     #conversations-list {
       flex: 1;
       overflow-y: auto;
       padding: 8px;
     }
+
+    .conv-date-group {
+      padding: 6px 12px 4px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-top: 8px;
+    }
+    .conv-date-group:first-child { margin-top: 0; }
 
     .conv-item {
       padding: 10px 12px;
@@ -104,13 +117,24 @@
       margin-bottom: 2px;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 8px;
+      gap: 10px;
       transition: background 0.15s;
     }
 
     .conv-item:hover { background: rgba(255,255,255,0.06); }
-    .conv-item.active { background: rgba(37, 99, 235, 0.2); }
+    .conv-item.active { background: rgba(37, 99, 235, 0.15); border-right: 3px solid var(--accent); }
+
+    .conv-icon {
+      font-size: 16px;
+      flex-shrink: 0;
+      width: 20px;
+      text-align: center;
+    }
+
+    .conv-info {
+      flex: 1;
+      min-width: 0;
+    }
 
     .conv-title {
       font-size: 13px;
@@ -118,7 +142,13 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      flex: 1;
+      line-height: 1.3;
+    }
+
+    .conv-time {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
     }
 
     .conv-delete {
@@ -144,16 +174,18 @@
       flex-direction: column;
       overflow: hidden;
       min-width: 0;
+      position: relative;
     }
 
     /* ========== TOP BAR ========== */
     #topbar {
-      padding: 14px 18px;
+      padding: 0 18px;
+      height: 52px;
       border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
       gap: 12px;
-      background: var(--bg);
+      background: var(--sidebar-bg);
     }
 
     #menu-btn {
@@ -166,16 +198,23 @@
       padding: 4px;
     }
 
+    #topbar-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
     #topbar-title {
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 700;
       color: var(--text);
+      white-space: nowrap;
     }
 
     #topbar-subtitle {
-      font-size: 12px;
+      font-size: 11px;
       color: var(--text-muted);
-      margin-right: auto;
+      white-space: nowrap;
     }
 
     /* ========== MESSAGES ========== */
@@ -187,6 +226,7 @@
       flex-direction: column;
       gap: 16px;
       scroll-behavior: smooth;
+      background: radial-gradient(ellipse at 50% 0%, rgba(59,130,246,0.04) 0%, transparent 60%);
     }
 
     /* Welcome screen */
@@ -194,51 +234,83 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      flex: 1;
-      gap: 16px;
-      padding: 40px 20px;
+      padding: 8vh 20px 20px;
       text-align: center;
+      gap: 6px;
     }
 
-    #welcome .icon {
-      font-size: 56px;
+    .welcome-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      margin-bottom: 8px;
+      box-shadow: 0 8px 32px rgba(59, 130, 246, 0.3);
     }
 
     #welcome h1 {
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 700;
+      color: var(--text);
     }
 
     #welcome p {
       color: var(--text-muted);
-      font-size: 15px;
-      max-width: 400px;
-      line-height: 1.6;
+      font-size: 13px;
+      max-width: 360px;
+      line-height: 1.5;
     }
 
     .chips {
-      display: flex;
-      flex-wrap: wrap;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
       gap: 8px;
-      justify-content: center;
-      margin-top: 8px;
+      margin-top: 20px;
+      width: 100%;
+      max-width: 480px;
     }
 
     .chip {
-      background: var(--sidebar-bg);
+      background: rgba(17, 24, 39, 0.7);
       border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 8px 16px;
-      font-size: 13px;
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 12.5px;
       cursor: pointer;
-      transition: background 0.15s, border-color 0.15s;
-      color: var(--text);
+      transition: all 0.25s;
+      color: var(--text-muted);
+      text-align: right;
+      line-height: 1.4;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .chip::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 3px;
+      height: 100%;
+      background: var(--accent);
+      opacity: 0;
+      transition: opacity 0.25s;
     }
 
     .chip:hover {
-      background: rgba(37, 99, 235, 0.15);
-      border-color: var(--accent);
+      background: rgba(59, 130, 246, 0.08);
+      border-color: rgba(59, 130, 246, 0.3);
+      color: var(--text);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 20px rgba(59, 130, 246, 0.1);
+    }
+
+    .chip:hover::before {
+      opacity: 1;
     }
 
     /* Message bubbles */
@@ -286,13 +358,13 @@
     }
 
     .message.user .bubble {
-      background: var(--bubble-user);
-      border-radius: 12px 4px 12px 12px;
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      border-radius: 18px 4px 18px 18px;
     }
 
     .message.bot .bubble {
       background: var(--bubble-bot);
-      border-radius: 4px 12px 12px 12px;
+      border-radius: 4px 18px 18px 18px;
       border: 1px solid var(--border);
     }
 
@@ -397,6 +469,120 @@
       direction: rtl;
     }
 
+    /* Correct-solution action bar */
+    .bubble-actions {
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255,255,255,0.07);
+      display: flex;
+      gap: 6px;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .message:hover .bubble-actions { opacity: 1; }
+
+    .action-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+    }
+
+    .action-btn:hover {
+      color: var(--text);
+      border-color: var(--accent);
+      background: rgba(37, 99, 235, 0.1);
+    }
+
+    .action-btn.copied {
+      color: #34d399;
+      border-color: #34d399;
+    }
+
+    /* Message timestamp */
+    .msg-time {
+      font-size: 10px;
+      color: var(--text-muted);
+      opacity: 0;
+      transition: opacity 0.2s;
+      margin-top: 4px;
+      text-align: right;
+    }
+    .message.user .msg-time { text-align: left; }
+    .message:hover .msg-time { opacity: 1; }
+
+    /* Message entrance animation */
+    @keyframes msgSlideIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .message { animation: msgSlideIn 0.3s ease-out; }
+
+    /* ========== TOAST NOTIFICATIONS ========== */
+    #toast-container {
+      position: fixed;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+    .toast {
+      background: var(--sidebar-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-size: 14px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+      pointer-events: auto;
+      animation: toastIn 0.3s ease-out;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      max-width: 400px;
+    }
+    .toast.success { border-color: #22c55e; }
+    .toast.success::before { content: '✓'; color: #22c55e; font-weight: 700; font-size: 16px; }
+    .toast.error { border-color: #ef4444; }
+    .toast.error::before { content: '✕'; color: #ef4444; font-weight: 700; font-size: 16px; }
+    .toast.info { border-color: var(--accent); }
+    .toast.info::before { content: 'ℹ'; color: var(--accent); font-weight: 700; font-size: 16px; }
+    .toast.removing { animation: toastOut 0.3s ease-in forwards; }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes toastOut { from { opacity: 1; } to { opacity: 0; transform: translateY(-20px); } }
+
+    /* ========== SCROLL TO BOTTOM BUTTON ========== */
+    #scroll-bottom-btn {
+      position: absolute;
+      bottom: 90px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--sidebar-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+      z-index: 50;
+      transition: background 0.2s;
+    }
+    #scroll-bottom-btn:hover { background: var(--accent); }
+    #scroll-bottom-btn.visible { display: flex; }
+
     /* Typing indicator */
     .typing-indicator {
       display: flex;
@@ -421,11 +607,23 @@
       30% { transform: translateY(-6px); opacity: 1; }
     }
 
+    .cursor-blink {
+      display: inline-block;
+      animation: cursor-blink-anim 0.8s step-end infinite;
+      color: var(--accent);
+      font-weight: bold;
+    }
+
+    @keyframes cursor-blink-anim {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
     /* ========== INPUT AREA ========== */
     #input-area {
-      padding: 16px;
+      padding: 12px 16px;
       border-top: 1px solid var(--border);
-      background: var(--bg);
+      background: var(--sidebar-bg);
     }
 
     /* Image preview strip */
@@ -477,15 +675,16 @@
       display: flex;
       align-items: flex-end;
       gap: 10px;
-      background: var(--input-bg);
+      background: var(--bg);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 10px 14px;
-      transition: border-color 0.2s;
+      border-radius: 24px;
+      padding: 8px 14px;
+      transition: border-color 0.2s, box-shadow 0.2s;
     }
 
     #input-wrapper:focus-within {
-      border-color: var(--accent);
+      border-color: rgba(59, 130, 246, 0.4);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.08);
     }
 
     #user-input {
@@ -528,24 +727,26 @@
       color: white;
       width: 36px;
       height: 36px;
-      border-radius: 8px;
+      border-radius: 50%;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 16px;
-      transition: background 0.2s, opacity 0.2s;
+      transition: all 0.2s;
       flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
     }
 
-    #send-btn:hover { background: var(--accent-hover); }
-    #send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    #send-btn:hover { background: var(--accent-hover); transform: scale(1.05); }
+    #send-btn:disabled { opacity: 0.3; cursor: not-allowed; box-shadow: none; transform: none; }
 
     #input-hint {
-      font-size: 11px;
+      font-size: 10px;
       color: var(--text-muted);
       text-align: center;
-      margin-top: 8px;
+      margin-top: 6px;
+      opacity: 0.6;
     }
 
     /* Image inside message bubble */
@@ -556,6 +757,373 @@
       display: block;
       margin-bottom: 6px;
       border: 1px solid var(--border);
+    }
+
+    /* ========== QUESTION BANK ========== */
+    #qbank-section {
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    #qbank-toggle-btn {
+      padding: 12px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: color 0.15s;
+      user-select: none;
+    }
+
+    #qbank-toggle-btn:hover { color: var(--text); }
+
+    #qbank-count-badge {
+      font-size: 10px;
+      background: var(--accent);
+      color: white;
+      padding: 1px 6px;
+      border-radius: 10px;
+      margin-right: auto;
+    }
+
+    #qbank-panel { padding: 8px; }
+
+    .qbank-actions { display: flex; gap: 6px; margin-bottom: 8px; }
+
+    .qbank-btn {
+      flex: 1;
+      background: var(--sidebar-bg);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 6px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+
+    .qbank-btn:hover { color: var(--text); border-color: var(--accent); }
+    .qbank-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    #qbank-list { max-height: 260px; overflow-y: auto; }
+
+    .qbank-item {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      margin-bottom: 6px;
+      font-size: 12px;
+    }
+
+    .qbank-text { color: var(--text); margin-bottom: 4px; line-height: 1.4; }
+    .qbank-meta { color: var(--text-muted); font-size: 10px; margin-bottom: 6px; }
+    .qbank-item-actions { display: flex; gap: 6px; }
+
+    .qbank-ask-btn {
+      flex: 1;
+      background: rgba(37,99,235,0.15);
+      border: 1px solid rgba(37,99,235,0.3);
+      color: #60a5fa;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .qbank-ask-btn:hover { background: rgba(37,99,235,0.25); }
+
+    .qbank-del-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 3px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: color 0.15s;
+    }
+
+    .qbank-del-btn:hover { color: #ef4444; border-color: #ef4444; }
+
+    .qbank-topic-group { margin-bottom: 4px; }
+    .qbank-topic-group.collapsed .qbank-topic-items { display: none; }
+    .qbank-topic-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 10px;
+      background: rgba(37,99,235,0.08);
+      border: 1px solid rgba(37,99,235,0.15);
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      transition: background 0.15s;
+      user-select: none;
+    }
+    .qbank-topic-header:hover { background: rgba(37,99,235,0.15); }
+    .qbank-topic-count {
+      background: var(--accent);
+      color: white;
+      border-radius: 10px;
+      padding: 1px 7px;
+      font-size: 10px;
+      font-weight: 700;
+      min-width: 20px;
+      text-align: center;
+    }
+    .qbank-topic-items { padding: 4px 0 4px 8px; }
+
+    .qbank-empty { color: var(--text-muted); font-size: 12px; text-align: center; padding: 12px; }
+
+    .qbank-solution {
+      display: none;
+      margin-top: 8px;
+      padding: 8px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 6px;
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      white-space: pre-wrap;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .qbank-solution.visible { display: block; }
+
+    .qbank-toggle-solution {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 10px;
+      cursor: pointer;
+      padding: 2px 0;
+      transition: color 0.15s;
+    }
+
+    .qbank-toggle-solution:hover { color: var(--text); }
+
+    .extracted-panel {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 12px;
+    }
+
+    .extracted-title { color: var(--text-muted); font-weight: 600; margin-bottom: 8px; }
+
+    .extracted-item { padding: 4px 0; }
+    .extracted-item label { display: flex; gap: 8px; align-items: flex-start; cursor: pointer; color: var(--text); line-height: 1.4; }
+    .extracted-actions { display: flex; gap: 6px; margin-top: 10px; }
+
+    /* Question/exercise images */
+    .qbank-img, .eb-card-img {
+      width: 100%;
+      max-height: 180px;
+      object-fit: contain;
+      border-radius: 6px;
+      margin-bottom: 6px;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      transition: opacity 0.15s;
+      background: rgba(255,255,255,0.03);
+    }
+    .qbank-img:hover, .eb-card-img:hover { opacity: 0.8; }
+    .extracted-preview-img {
+      width: 100%;
+      max-height: 160px;
+      object-fit: contain;
+      border-radius: 6px;
+      margin-bottom: 10px;
+      border: 1px solid var(--border);
+    }
+
+    /* Lightbox overlay */
+    #lightbox-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.9);
+      z-index: 9999;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      gap: 12px;
+    }
+    #lightbox-overlay.active { display: flex; }
+    #lightbox-overlay img {
+      max-width: 92vw;
+      max-height: 85vh;
+      border-radius: 8px;
+      box-shadow: 0 4px 40px rgba(0,0,0,0.6);
+      cursor: default;
+    }
+    .lightbox-actions {
+      display: flex;
+      gap: 10px;
+    }
+    .lightbox-btn {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: white;
+      padding: 8px 18px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: background 0.2s;
+    }
+    .lightbox-btn:hover { background: rgba(255,255,255,0.2); }
+
+    /* Skeleton loader animation */
+    @keyframes skeleton-pulse {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 0.15; }
+    }
+    .skeleton {
+      background: var(--sidebar-bg);
+      border-radius: 12px;
+      animation: skeleton-pulse 1.5s ease-in-out infinite;
+    }
+    .skeleton-card { height: 160px; }
+    .skeleton-conv { height: 42px; border-radius: 8px; margin-bottom: 4px; }
+
+    /* Delete confirmation modal */
+    #delete-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 9998;
+      justify-content: center;
+      align-items: center;
+    }
+    #delete-modal.active { display: flex; }
+    .delete-modal-box {
+      background: var(--sidebar-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      text-align: center;
+      max-width: 320px;
+    }
+    .delete-modal-box h3 { font-size: 16px; margin-bottom: 8px; }
+    .delete-modal-box p { color: var(--text-muted); font-size: 13px; margin-bottom: 18px; }
+    .delete-modal-btns { display: flex; gap: 10px; justify-content: center; }
+    .delete-modal-btns button {
+      padding: 8px 24px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: opacity 0.15s;
+    }
+    .delete-modal-btns button:hover { opacity: 0.85; }
+    .btn-cancel { background: var(--border); color: var(--text); }
+    .btn-delete { background: #ef4444; color: white; }
+
+    /* Sidebar search */
+    #sidebar-search {
+      width: 100%;
+      padding: 8px 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 13px;
+      outline: none;
+      margin-top: 8px;
+      transition: border-color 0.2s;
+    }
+    #sidebar-search:focus { border-color: var(--accent); }
+    #sidebar-search::placeholder { color: var(--text-muted); }
+
+    /* ========== EXAM PICKER DIALOG ========== */
+    #exam-picker-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 9998;
+      justify-content: center;
+      align-items: center;
+    }
+    #exam-picker-overlay.active { display: flex; }
+    .exam-picker {
+      background: var(--sidebar-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      width: 90vw;
+      max-width: 480px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+    }
+    .exam-picker-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .exam-picker-header h3 {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .exam-picker-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 22px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+    .exam-picker-close:hover { background: rgba(255,255,255,0.1); }
+    .exam-picker-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 20px;
+    }
+    .exam-group-label {
+      font-size: 12px;
+      color: var(--accent);
+      font-weight: 700;
+      margin: 14px 0 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .exam-group-label:first-child { margin-top: 4px; }
+    .exam-item {
+      display: flex;
+      align-items: center;
+      padding: 10px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--text);
+      transition: background 0.15s;
+      gap: 10px;
+    }
+    .exam-item:hover { background: rgba(37,99,235,0.12); }
+    .exam-item .exam-icon { font-size: 18px; flex-shrink: 0; }
+    .exam-item .exam-label { flex: 1; }
+    .exam-picker-footer {
+      padding: 12px 20px;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-muted);
     }
 
     /* ========== MOBILE ========== */
@@ -586,7 +1154,348 @@
       #menu-btn { display: flex; }
 
       .message { max-width: 100%; }
+
+      .chips { grid-template-columns: 1fr 1fr; gap: 6px; }
+      .chip { padding: 10px 12px; font-size: 11.5px; }
+      #welcome { padding: 5vh 14px 14px; gap: 4px; }
+      .welcome-icon { width: 48px; height: 48px; font-size: 22px; border-radius: 14px; }
+      #welcome h1 { font-size: 20px; }
+      #input-hint { display: none; }
     }
+
+    /* ========== TABS ========== */
+    .tab-bar {
+      display: flex;
+      gap: 2px;
+      margin-right: auto;
+      margin-left: 12px;
+      background: rgba(255,255,255,0.04);
+      border-radius: 8px;
+      padding: 3px;
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      padding: 5px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-weight: 500;
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { color: var(--text); background: var(--accent); font-weight: 600; }
+
+    /* ========== EXERCISE BANK PANEL ========== */
+    #exercise-bank {
+      display: none;
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+    }
+    #exercise-bank.visible { display: block; }
+
+    .eb-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .eb-header h2 { font-size: 20px; font-weight: 700; }
+    .eb-upload-btn {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background 0.15s;
+    }
+    .eb-upload-btn:hover { background: var(--accent-hover); }
+
+    /* ========== STATS BAR ========== */
+    .eb-stats {
+      display: flex;
+      gap: 16px;
+      padding: 10px 0;
+      font-size: 13px;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 12px;
+    }
+    .eb-stats span { font-weight: 600; color: var(--text); }
+
+    /* ========== SEARCH BAR ========== */
+    .eb-search {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 14px;
+      margin-bottom: 12px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .eb-search:focus { border-color: var(--accent); }
+    .eb-search::placeholder { color: var(--text-muted); }
+
+    /* ========== TOPIC FILTER BAR ========== */
+    .eb-filter-bar {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 4px 0 12px;
+      scrollbar-width: none;
+    }
+    .eb-filter-bar::-webkit-scrollbar { display: none; }
+    .eb-filter-chip {
+      flex-shrink: 0;
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .eb-filter-chip:hover { border-color: var(--text); color: var(--text); }
+    .eb-filter-chip.active {
+      color: white;
+      border-color: transparent;
+    }
+    .eb-filter-chip .chip-count {
+      font-size: 11px;
+      opacity: 0.7;
+    }
+
+    /* ========== TOPIC SECTIONS ========== */
+    .eb-topic-section { margin-bottom: 20px; }
+    .eb-topic-title {
+      font-size: 16px;
+      font-weight: 700;
+      padding: 10px 0 8px;
+      border-bottom: 2px solid var(--border);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .eb-topic-title:hover { opacity: 0.8; }
+    .eb-topic-title .count {
+      color: white;
+      border-radius: 10px;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .eb-topic-section.collapsed .eb-cards { display: none; }
+
+    .eb-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 12px;
+    }
+
+    .eb-card {
+      background: var(--sidebar-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      border-right: 3px solid var(--border);
+      position: relative;
+    }
+    .eb-card:hover { box-shadow: 0 0 16px rgba(37,99,235,0.12); }
+    .eb-card-badges {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    .eb-badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .eb-badge-topic {
+      color: white;
+    }
+    .eb-badge-source {
+      background: rgba(255,255,255,0.08);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    .eb-card-text {
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text);
+      margin-bottom: 10px;
+      max-height: 100px;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 4;
+      -webkit-box-orient: vertical;
+    }
+    .eb-card-actions {
+      display: flex;
+      gap: 6px;
+    }
+    .eb-solve-btn {
+      flex: 1;
+      background: rgba(37,99,235,0.15);
+      border: 1px solid rgba(37,99,235,0.3);
+      color: #60a5fa;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background 0.15s;
+    }
+    .eb-solve-btn:hover { background: rgba(37,99,235,0.25); }
+    .eb-delete-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: color 0.15s;
+    }
+    .eb-delete-btn:hover { color: #ef4444; border-color: #ef4444; }
+
+    /* Solution toggle */
+    .eb-solution-toggle {
+      width: 100%;
+      background: rgba(34,197,94,0.1);
+      border: 1px solid rgba(34,197,94,0.25);
+      color: #4ade80;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      margin-top: 6px;
+      transition: background 0.15s;
+      font-family: inherit;
+    }
+    .eb-solution-toggle:hover { background: rgba(34,197,94,0.2); }
+    .eb-solution-wrap {
+      display: none;
+      margin-top: 8px;
+      padding: 12px;
+      background: rgba(15,23,42,0.6);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--text);
+      max-height: 400px;
+      overflow-y: auto;
+      direction: rtl;
+    }
+    .eb-solution-wrap.open { display: block; }
+    .eb-solution-wrap table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 8px 0;
+      font-size: 12px;
+    }
+    .eb-solution-wrap th, .eb-solution-wrap td {
+      border: 1px solid var(--border);
+      padding: 4px 8px;
+      text-align: center;
+    }
+    .eb-solution-wrap th { background: rgba(37,99,235,0.1); }
+
+    /* Edit modal */
+    .eb-edit-overlay {
+      position: fixed; top:0; left:0; right:0; bottom:0;
+      background: rgba(0,0,0,0.7); z-index: 3000;
+      display: flex; align-items: center; justify-content: center;
+      padding: 16px;
+    }
+    .eb-edit-modal {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 20px; width: 95%; max-width: 600px;
+      max-height: 85vh; overflow-y: auto; direction: rtl;
+    }
+    .eb-edit-modal h3 { margin: 0 0 14px; color: var(--text); font-size: 16px; }
+    .eb-edit-modal label { display: block; color: var(--text-muted); font-size: 12px; margin: 10px 0 4px; font-weight: 600; }
+    .eb-edit-modal textarea, .eb-edit-modal select {
+      width: 100%; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 8px; padding: 8px 10px; color: var(--text);
+      font-size: 13px; font-family: inherit; resize: vertical;
+    }
+    .eb-edit-modal textarea:focus, .eb-edit-modal select:focus { outline: none; border-color: var(--accent); }
+    .eb-edit-modal .eb-edit-actions { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-start; }
+    .eb-edit-modal .eb-edit-save {
+      background: var(--accent); color: #fff; border: none;
+      padding: 8px 20px; border-radius: 8px; font-size: 13px; cursor: pointer; font-weight: 600;
+    }
+    .eb-edit-modal .eb-edit-cancel {
+      background: none; border: 1px solid var(--border); color: var(--text-muted);
+      padding: 8px 20px; border-radius: 8px; font-size: 13px; cursor: pointer;
+    }
+    .eb-edit-btn {
+      background: none; border: 1px solid rgba(251,191,36,0.3);
+      color: #fbbf24; padding: 6px 10px; border-radius: 6px;
+      font-size: 12px; cursor: pointer; transition: all 0.15s;
+    }
+    .eb-edit-btn:hover { background: rgba(251,191,36,0.15); border-color: #fbbf24; }
+
+    /* Difficulty badges */
+    .eb-diff { font-size: 10px; padding: 2px 7px; border-radius: 10px; font-weight: 700; }
+    .eb-diff-1 { background: rgba(34,197,94,0.2); color: #4ade80; }
+    .eb-diff-2 { background: rgba(251,191,36,0.2); color: #fbbf24; }
+    .eb-diff-3 { background: rgba(239,68,68,0.2); color: #f87171; }
+
+    /* Difficulty filter pills */
+    .eb-diff-filters { display: flex; gap: 6px; margin: 8px 0 4px; flex-wrap: wrap; }
+    .eb-diff-pill {
+      padding: 4px 12px; border-radius: 16px; font-size: 11px;
+      cursor: pointer; border: 1px solid var(--border); color: var(--text-muted);
+      background: none; transition: all 0.15s; font-weight: 600;
+    }
+    .eb-diff-pill.active { border-color: var(--accent); color: var(--accent); background: rgba(37,99,235,0.1); }
+    .eb-diff-pill:hover { border-color: var(--accent); }
+
+    /* Drag & drop */
+    .eb-card[draggable="true"] { cursor: grab; }
+    .eb-card.dragging { opacity: 0.4; transform: scale(0.97); }
+    .eb-card.drag-over { border-top: 2px solid var(--accent); }
+    .eb-topic-section.drag-target { outline: 2px dashed var(--accent); outline-offset: -2px; border-radius: 8px; }
+
+    /* Save-to-bank button in chat */
+    .save-to-bank-btn {
+      background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3);
+      color: #4ade80; padding: 4px 10px; border-radius: 6px;
+      font-size: 11px; cursor: pointer; font-weight: 600; transition: all 0.15s;
+    }
+    .save-to-bank-btn:hover { background: rgba(34,197,94,0.2); }
+    .save-to-bank-btn.saved { color: #86efac; pointer-events: none; opacity: 0.7; }
+
+    .eb-empty {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+    }
+    .eb-empty-icon { font-size: 48px; margin-bottom: 12px; }
+    .eb-empty p { font-size: 14px; margin-bottom: 16px; }
 
     /* ========== SCROLLBAR ========== */
     ::-webkit-scrollbar { width: 6px; }
@@ -598,6 +1507,38 @@
 <body>
 
 <div id="overlay" onclick="closeSidebar()"></div>
+<div id="lightbox-overlay" onclick="if(event.target===this)this.classList.remove('active')">
+  <img id="lightbox-img" src="" />
+  <div class="lightbox-actions">
+    <button class="lightbox-btn" onclick="downloadLightboxImg()">💾 הורד תמונה</button>
+    <button class="lightbox-btn" onclick="document.getElementById('lightbox-overlay').classList.remove('active')">✕ סגור</button>
+  </div>
+</div>
+<div id="delete-modal" onclick="if(event.target===this)closeDeleteModal()">
+  <div class="delete-modal-box">
+    <h3>🗑️ מחיקת שיחה</h3>
+    <p>השיחה תימחק לצמיתות. להמשיך?</p>
+    <div class="delete-modal-btns">
+      <button class="btn-cancel" onclick="closeDeleteModal()">ביטול</button>
+      <button class="btn-delete" id="confirm-delete-btn">מחק</button>
+    </div>
+  </div>
+</div>
+<div id="toast-container"></div>
+
+<!-- Exam Picker Dialog -->
+<div id="exam-picker-overlay" onclick="if(event.target===this)closeExamPicker()">
+  <div class="exam-picker">
+    <div class="exam-picker-header">
+      <h3>בחר מבחן לחילוץ שאלות</h3>
+      <button class="exam-picker-close" onclick="closeExamPicker()">&times;</button>
+    </div>
+    <div class="exam-picker-body" id="exam-picker-list">
+      <div style="text-align:center;padding:30px;color:var(--text-muted)">טוען מבחנים...</div>
+    </div>
+    <div class="exam-picker-footer">לחץ על מבחן כדי לחלץ ממנו שאלות</div>
+  </div>
+</div>
 
 <div id="app">
 
@@ -608,37 +1549,69 @@
       <button id="new-chat-btn" onclick="newChat()">
         <span>+</span> שיחה חדשה
       </button>
+      <input type="text" id="sidebar-search" placeholder="🔍 חיפוש שיחות..." oninput="filterConversations(this.value)" />
     </div>
     <div id="conversations-list"></div>
+
+    <!-- Question Bank -->
+    <div id="qbank-section">
+      <div id="qbank-toggle-btn" onclick="toggleQBank()">
+        📚 מאגר שאלות
+        <span id="qbank-count-badge" style="display:none"></span>
+      </div>
+      <div id="qbank-panel" style="display:none">
+        <div class="qbank-actions">
+          <button class="qbank-btn" id="btn-extract-exams" onclick="openExamPicker()">📄 חלץ ממבחנים</button>
+          <input type="file" id="qbank-file" accept="image/*" style="display:none" onchange="extractFromImageFile(event)">
+          <button class="qbank-btn" onclick="document.getElementById('qbank-file').click()">📎 חלץ מתמונה</button>
+        </div>
+        <div id="qbank-list"></div>
+      </div>
+    </div>
   </div>
 
   <!-- MAIN -->
   <div id="main">
     <div id="topbar">
       <button id="menu-btn" onclick="toggleSidebar()">☰</button>
-      <div>
-        <div id="topbar-title">⚡ בוט מכונות חשמל</div>
-        <div id="topbar-subtitle">Gemini · מהנדסי חשמל</div>
+      <div id="topbar-info">
+        <div id="topbar-title">⚡ מכונות חשמל</div>
+        <div id="topbar-subtitle">Gemini Pro</div>
+      </div>
+      <div class="tab-bar">
+        <button class="tab-btn active" onclick="switchTab('chat')" id="tab-chat">💬 צ'אט</button>
+        <button class="tab-btn" onclick="switchTab('exercises')" id="tab-exercises">📚 תרגילים</button>
       </div>
     </div>
 
     <div id="messages">
-      <div id="welcome">
-        <div class="icon">⚡</div>
-        <h1>בוט מכונות חשמל</h1>
-        <p>שאל כל שאלה על מכונות חשמל — מנועי DC, מנועי AC, שנאים, גנרטורים ועוד. הבוט יפתור שלב אחר שלב עם נוסחאות.</p>
-        <div class="chips">
-          <div class="chip" onclick="sendChip(this)">חשב מהירות סינכרונית של מנוע אסינכרוני 4 קטבים, 50 Hz</div>
-          <div class="chip" onclick="sendChip(this)">מנוע DC טורי עם זרם עומס 20A ותנגודת עניין 0.5Ω - חשב נ.א.כ</div>
-          <div class="chip" onclick="sendChip(this)">שנאי 10kVA יחס סיבובים 1:10 - חשב זרמי צד ראשוני ומשני</div>
-          <div class="chip" onclick="sendChip(this)">Explain slip in an induction motor</div>
+      <div id="welcome"></div>
+    </div>
+
+    <!-- EXERCISE BANK TAB -->
+    <div id="exercise-bank">
+      <div class="eb-header">
+        <h2>📚 מאגר תרגילים</h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <input type="file" id="eb-upload-input" accept="image/*" style="display:none" onchange="ebUploadImage(event)" />
+          <button id="eb-upload-btn-main" class="eb-upload-btn" onclick="document.getElementById('eb-upload-input').click()">📎 חלץ מתמונה</button>
+          <button class="eb-upload-btn" onclick="openExamPicker()" style="background:rgba(37,99,235,0.15);color:#60a5fa;border:1px solid rgba(37,99,235,0.3)">📄 חלץ ממבחנים</button>
+          <button id="eb-batch-btn" class="eb-upload-btn" onclick="batchProcessQuestions()" style="background:rgba(34,197,94,0.12);color:#4ade80;border:1px solid rgba(34,197,94,0.3)">🧠 פתור הכל</button>
         </div>
       </div>
+      <div id="eb-stats" class="eb-stats"></div>
+      <input type="text" class="eb-search" id="eb-search" placeholder="חפש שאלה..." oninput="filterExercises()" />
+      <div id="eb-filter-bar" class="eb-filter-bar"></div>
+      <div id="eb-content"></div>
     </div>
+
+    <button id="scroll-bottom-btn" onclick="scrollToBottom()">↓</button>
 
     <div id="input-area">
       <!-- Hidden file input — no capture attr so user can pick gallery OR camera -->
       <input type="file" id="image-input" accept="image/*" style="display:none" onchange="onImageSelected(event)" />
+      <!-- Hidden file input for correct solution upload -->
+      <input type="file" id="correct-solution-input" accept="image/*" style="display:none" onchange="onCorrectSolutionSelected(event)" />
 
       <!-- Image preview strip (shown when image is attached) -->
       <div id="image-preview-wrap">
@@ -652,7 +1625,7 @@
         <textarea
           id="user-input"
           rows="1"
-          placeholder="שאל שאלה על מכונות חשמל... (Shift+Enter לשורה חדשה)"
+          placeholder="שאל שאלה על מכונות חשמל..."
           onkeydown="handleKey(event)"
           oninput="autoResize(this)"
         ></textarea>
@@ -672,9 +1645,577 @@
 
   // ========== INIT ==========
   document.addEventListener('DOMContentLoaded', () => {
+    showWelcome();
     loadConversations();
     document.getElementById('user-input').focus();
   });
+
+  // ========== TAB SWITCHING ==========
+  function switchTab(tab) {
+    const chatElements = [document.getElementById('messages'), document.getElementById('input-area')];
+    const ebPanel = document.getElementById('exercise-bank');
+    const tabChat = document.getElementById('tab-chat');
+    const tabExercises = document.getElementById('tab-exercises');
+
+    if (tab === 'exercises') {
+      chatElements.forEach(el => el.style.display = 'none');
+      ebPanel.classList.add('visible');
+      tabChat.classList.remove('active');
+      tabExercises.classList.add('active');
+      loadExerciseBank();
+    } else {
+      chatElements.forEach(el => el.style.display = '');
+      ebPanel.classList.remove('visible');
+      tabChat.classList.add('active');
+      tabExercises.classList.remove('active');
+    }
+  }
+
+  async function loadExerciseBank() {
+    // Show skeleton while loading
+    const container = document.getElementById('exercise-bank');
+    if (container && !container.querySelector('.eb-header')) {
+      container.innerHTML = `<div style="padding:24px;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">
+        ${Array(6).fill('<div class="skeleton skeleton-card"></div>').join('')}
+      </div>`;
+    }
+    try {
+      const res = await fetch('/api/questions');
+      const questions = await res.json();
+      window._lastQuestions = questions;
+      renderExerciseBank(questions);
+    } catch (e) {
+      console.error('Failed to load exercise bank', e);
+    }
+  }
+
+  // ========== TOPIC COLOR SYSTEM ==========
+  // Keywords matched with .includes() — order matters (first match wins)
+  const TOPIC_RULES = [
+    { keys: ['שנאי','שנאים','Transformer','transformer','Parallel Transformer'], cfg: { icon: '🔌', color: '#a855f7', label: 'שנאים' } },
+    { keys: ['אסינכרוני','השראה','Induction','induction'], cfg: { icon: '⚙️', color: '#22c55e', label: 'מנוע אסינכרוני' } },
+    { keys: ['סינכרוני','Synchronous','synchronous'], cfg: { icon: '🔄', color: '#f59e0b', label: 'סינכרוני' } },
+    { keys: ['DC','dc'], cfg: { icon: '🔋', color: '#ef4444', label: 'DC' } },
+    { keys: ['הינע','VFD','vfd','וסת מהירות','Chopper','chopper','Drive','drive'], cfg: { icon: '🏭', color: '#3b82f6', label: 'הינע חשמלי' } },
+    { keys: ['מקדם','הספק','Power Factor','power factor'], cfg: { icon: '⚡', color: '#06b6d4', label: 'מקדם הספק' } },
+    { keys: ['כבל','הגנה','העמסה','Cable','cable','Protection'], cfg: { icon: '🛡️', color: '#ec4899', label: 'כבלים והגנה' } },
+    { keys: ['רשת','מעגל','רדיאלי','Circuit','circuit','Network','תמורה'], cfg: { icon: '🔗', color: '#14b8a6', label: 'מעגלים ורשתות' } },
+  ];
+  const DEFAULT_TOPIC = { icon: '📋', color: '#6b7280', label: 'כללי' };
+
+  function getTopicConfig(topic) {
+    for (const rule of TOPIC_RULES) {
+      for (const key of rule.keys) {
+        if (topic.includes(key)) return rule.cfg;
+      }
+    }
+    return DEFAULT_TOPIC;
+  }
+
+  // Store questions globally for filtering
+  let _allQuestions = [];
+  let _activeFilter = 'all';
+  let _activeDifficulty = 0; // 0=all, 1=easy, 2=medium, 3=hard
+
+  function renderExerciseBank(questions) {
+    _allQuestions = questions;
+    _activeFilter = 'all';
+    document.getElementById('eb-search').value = '';
+    renderFilterBar(questions);
+    renderStats(questions);
+    renderCards(questions);
+  }
+
+  function renderStats(questions) {
+    const statsEl = document.getElementById('eb-stats');
+    if (!questions.length) { statsEl.innerHTML = ''; return; }
+    const topics = new Set(questions.map(q => getTopicConfig(q.topic || 'כללי').label));
+    const withSolution = questions.filter(q => q.solution).length;
+    const solvedPct = Math.round(withSolution / questions.length * 100);
+
+    const dCounts = { 1: 0, 2: 0, 3: 0 };
+    questions.forEach(q => { if (q.difficulty) dCounts[q.difficulty]++; });
+
+    statsEl.innerHTML = `
+      <div><span>${questions.length}</span> שאלות &nbsp;|&nbsp; <span>${topics.size}</span> נושאים &nbsp;|&nbsp; <span style="color:#4ade80">${withSolution}</span> פתורות (${solvedPct}%)</div>
+      <div class="eb-diff-filters">
+        <button class="eb-diff-pill ${_activeDifficulty===0?'active':''}" onclick="setDifficulty(0)">הכל</button>
+        <button class="eb-diff-pill ${_activeDifficulty===1?'active':''}" onclick="setDifficulty(1)">🟢 קל (${dCounts[1]})</button>
+        <button class="eb-diff-pill ${_activeDifficulty===2?'active':''}" onclick="setDifficulty(2)">🟡 בינוני (${dCounts[2]})</button>
+        <button class="eb-diff-pill ${_activeDifficulty===3?'active':''}" onclick="setDifficulty(3)">🔴 קשה (${dCounts[3]})</button>
+      </div>
+    `;
+  }
+
+  function setDifficulty(d) {
+    _activeDifficulty = d;
+    filterExercises();
+    renderStats(_allQuestions);
+  }
+
+  function renderFilterBar(questions) {
+    const bar = document.getElementById('eb-filter-bar');
+    if (!questions.length) { bar.innerHTML = ''; return; }
+
+    // Count per normalized topic
+    const counts = {};
+    questions.forEach(q => {
+      const cfg = getTopicConfig(q.topic || 'כללי');
+      counts[cfg.label] = (counts[cfg.label] || 0) + 1;
+    });
+
+    // Build unique topics preserving order
+    const seen = new Set();
+    const topicList = [];
+    questions.forEach(q => {
+      const cfg = getTopicConfig(q.topic || 'כללי');
+      if (!seen.has(cfg.label)) {
+        seen.add(cfg.label);
+        topicList.push(cfg);
+      }
+    });
+
+    let html = `<button class="eb-filter-chip active" style="background:var(--accent)" onclick="setFilter('all')">הכל <span class="chip-count">${questions.length}</span></button>`;
+    topicList.forEach(cfg => {
+      html += `<button class="eb-filter-chip" data-topic="${cfg.label}" onclick="setFilter('${cfg.label}')" style="--chip-color:${cfg.color}">
+        ${cfg.icon} ${cfg.label} <span class="chip-count">${counts[cfg.label]}</span>
+      </button>`;
+    });
+    bar.innerHTML = html;
+  }
+
+  function setFilter(topic) {
+    _activeFilter = topic;
+    // Update active chip
+    document.querySelectorAll('.eb-filter-chip').forEach(chip => {
+      chip.classList.remove('active');
+      chip.style.background = '';
+      chip.style.borderColor = '';
+      chip.style.color = '';
+    });
+    if (topic === 'all') {
+      const allChip = document.querySelector('.eb-filter-chip');
+      allChip.classList.add('active');
+      allChip.style.background = 'var(--accent)';
+    } else {
+      document.querySelectorAll('.eb-filter-chip[data-topic]').forEach(chip => {
+        if (chip.dataset.topic === topic) {
+          chip.classList.add('active');
+          const cfg = TOPIC_RULES.map(r=>r.cfg).find(c=>c.label===topic) || DEFAULT_TOPIC;
+          chip.style.background = cfg.color;
+          chip.style.borderColor = cfg.color;
+          chip.style.color = 'white';
+        }
+      });
+    }
+    filterExercises();
+  }
+
+  function filterExercises() {
+    const search = (document.getElementById('eb-search').value || '').trim().toLowerCase();
+    let filtered = _allQuestions;
+    if (_activeFilter !== 'all') {
+      filtered = filtered.filter(q => getTopicConfig(q.topic || 'כללי').label === _activeFilter);
+    }
+    if (_activeDifficulty > 0) {
+      filtered = filtered.filter(q => q.difficulty === _activeDifficulty);
+    }
+    if (search) {
+      filtered = filtered.filter(q => (q.text || '').toLowerCase().includes(search) || (q.topic || '').toLowerCase().includes(search));
+    }
+    renderCards(filtered);
+  }
+
+  function renderCards(questions) {
+    const container = document.getElementById('eb-content');
+
+    if (!questions.length) {
+      const isFiltered = _activeFilter !== 'all' || (document.getElementById('eb-search').value || '').trim();
+      container.innerHTML = `
+        <div class="eb-empty">
+          <div class="eb-empty-icon">${isFiltered ? '🔍' : '📚'}</div>
+          <p>${isFiltered ? 'לא נמצאו שאלות מתאימות.' : 'אין תרגילים עדיין.<br>העלה תמונה של דף תרגילים או מבחן והבוט יחלץ את השאלות אוטומטית.'}</p>
+          ${isFiltered ? '' : '<button class="eb-upload-btn" onclick="document.getElementById(\'eb-upload-input\').click()">📎 העלה תמונה</button>'}
+        </div>`;
+      return;
+    }
+
+    // Group by normalized topic
+    const groups = {};
+    questions.forEach(q => {
+      const cfg = getTopicConfig(q.topic || 'כללי');
+      const key = cfg.label;
+      if (!groups[key]) groups[key] = { cfg, items: [] };
+      groups[key].items.push(q);
+    });
+
+    container.innerHTML = Object.entries(groups).map(([topic, { cfg, items }]) => `
+      <div class="eb-topic-section" data-topic="${cfg.label}"
+           ondragover="event.preventDefault(); this.classList.add('drag-target')"
+           ondragleave="this.classList.remove('drag-target')"
+           ondrop="dropOnTopic(event, this)">
+        <div class="eb-topic-title" onclick="this.parentElement.classList.toggle('collapsed')" style="border-bottom-color:${cfg.color};color:${cfg.color}">
+          ${cfg.icon} ${escapeHtml(topic)}
+          <span class="count" style="background:${cfg.color}">${items.length}</span>
+        </div>
+        <div class="eb-cards">
+          ${items.map(q => {
+            const qCfg = getTopicConfig(q.topic || 'כללי');
+            const diffLabel = q.difficulty === 3 ? '🔴 קשה' : q.difficulty === 2 ? '🟡 בינוני' : q.difficulty === 1 ? '🟢 קל' : '';
+            const diffClass = q.difficulty ? `eb-diff eb-diff-${q.difficulty}` : '';
+            return `
+            <div class="eb-card" data-qid="${q.id}" draggable="true"
+                 ondragstart="dragCard(event, ${q.id})"
+                 ondragend="this.classList.remove('dragging')"
+                 style="border-right-color:${qCfg.color}" onmouseenter="this.style.boxShadow='0 0 16px ${qCfg.color}22'" onmouseleave="this.style.boxShadow=''">
+              <div class="eb-card-badges">
+                <span class="eb-badge eb-badge-topic" style="background:${qCfg.color}">${qCfg.icon} ${escapeHtml(q.topic || 'כללי')}</span>
+                ${diffLabel ? `<span class="${diffClass}">${diffLabel}</span>` : ''}
+                ${q.source ? `<span class="eb-badge eb-badge-source">${escapeHtml(q.source)}</span>` : ''}
+              </div>
+              ${q.image_url ? `<img class="eb-card-img" src="${q.image_url}" onclick="openLightbox('${q.image_url}')" alt="תמונת שאלה" />` : ''}
+              <div class="eb-card-text">${escapeHtml(q.text)}</div>
+              <div class="eb-card-actions">
+                ${q.solution
+                  ? `<button class="eb-solve-btn" style="background:rgba(34,197,94,0.15);border-color:rgba(34,197,94,0.3);color:#4ade80" onclick="toggleEbSolution(this.parentElement.nextElementSibling)">📖 הצג פתרון</button>`
+                  : `<button class="eb-solve-btn" onclick="solveExercise('${encodeURIComponent(q.text)}', '${q.image_url || ''}')">⚡ פתור בצ'אט</button>`
+                }
+                <button class="eb-edit-btn" onclick="openEditModal(${q.id})">✏️ ערוך</button>
+                <button class="eb-delete-btn" onclick="deleteExerciseAndRefresh(${q.id})">✕ מחק</button>
+              </div>
+              ${q.solution ? `
+              <div class="eb-solution-wrap" data-qid="${q.id}">${q.solution}</div>
+              ` : ''}
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function solveExercise(encodedText, imageUrl) {
+    const text = decodeURIComponent(encodedText);
+    switchTab('chat');
+    newChat();
+
+    // If exercise has an image (circuit diagram), attach it
+    if (imageUrl) {
+      try {
+        const resp = await fetch(imageUrl);
+        const blob = await resp.blob();
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const dataUrl = e.target.result;
+          const [header, base64] = dataUrl.split(',');
+          const mimeType = header.match(/:(.*?);/)[1];
+          pendingImage = { base64, mimeType, dataUrl, name: 'circuit-diagram.png' };
+          document.getElementById('image-preview').src = dataUrl;
+          document.getElementById('image-preview-name').textContent = 'סרטוט מעגל';
+          document.getElementById('image-preview-wrap').classList.add('visible');
+          document.getElementById('attach-btn').classList.add('has-image');
+          document.getElementById('user-input').value = text;
+          autoResize(document.getElementById('user-input'));
+          sendMessage();
+        };
+        reader.readAsDataURL(blob);
+      } catch {
+        // Fallback: send without image
+        document.getElementById('user-input').value = text;
+        autoResize(document.getElementById('user-input'));
+        sendMessage();
+      }
+    } else {
+      document.getElementById('user-input').value = text;
+      document.getElementById('user-input').focus();
+      autoResize(document.getElementById('user-input'));
+      sendMessage();
+    }
+  }
+
+  async function deleteExerciseAndRefresh(id) {
+    await fetch(`/api/questions/${id}`, { method: 'DELETE' });
+    loadExerciseBank();
+    loadQBank();
+  }
+
+  async function batchProcessQuestions() {
+    const btn = document.getElementById('eb-batch-btn');
+    const oldText = btn.textContent;
+    btn.disabled = true;
+
+    // Step 1: Deduplicate
+    btn.textContent = '🧹 מנקה כפילויות...';
+    try {
+      const dedupRes = await fetch('/api/questions/deduplicate', { method: 'POST' });
+      const dedupData = await dedupRes.json();
+      if (dedupData.removed > 0) {
+        showToast(`🧹 הוסרו ${dedupData.removed} כפילויות. נשארו ${dedupData.remaining} שאלות.`, 'success');
+        loadExerciseBank();
+      }
+    } catch (e) {
+      showToast('שגיאה בניקוי: ' + e.message, 'error');
+    }
+
+    // Step 2: Batch solve via SSE stream
+    btn.textContent = '🧠 מתחיל לפתור...';
+    try {
+      const response = await fetch('/api/questions/batch-solve', { method: 'POST' });
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data.status === 'solving') {
+              btn.textContent = `🧠 פותר ${data.current}/${data.total}...`;
+            } else if (data.status === 'progress' && data.current % 5 === 0) {
+              loadExerciseBank();
+            } else if (data.done) {
+              if (data.solved > 0) {
+                showToast(`🧠 נפתרו ${data.solved} שאלות! סה״כ ${data.total} במאגר.`, 'success');
+              } else {
+                showToast(data.message || 'הכל כבר פתור!', 'info');
+              }
+            }
+          } catch {}
+        }
+      }
+      loadExerciseBank();
+      loadQBank();
+    } catch (e) {
+      showToast('שגיאה בפתרון: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = oldText;
+    }
+  }
+
+  function toggleEbSolution(el) {
+    // el can be a button (with nextElementSibling being the wrap) or the wrap itself
+    const wrap = el.classList.contains('eb-solution-wrap') ? el : el.nextElementSibling;
+    if (!wrap || !wrap.classList.contains('eb-solution-wrap')) return;
+
+    const isOpen = wrap.classList.toggle('open');
+
+    // Find the toggle button in the card to update its text
+    const card = wrap.closest('.eb-card');
+    const btn = card?.querySelector('.eb-solve-btn, .eb-solution-toggle');
+    if (btn) {
+      btn.textContent = isOpen ? '📖 הסתר פתרון' : '📖 הצג פתרון';
+    }
+
+    // Render markdown + math on first open
+    if (isOpen && !wrap.dataset.rendered) {
+      wrap.innerHTML = renderMarkdown(wrap.textContent);
+      renderMath(wrap);
+      wrap.dataset.rendered = '1';
+    }
+  }
+
+  // ---- Edit Modal ----
+  let _editQid = null;
+
+  function openEditModal(qid) {
+    const questions = window._lastQuestions || [];
+    const q = questions.find(x => x.id === qid);
+    if (!q) return;
+    _editQid = qid;
+
+    const topics = ['שנאים','מנוע אסינכרוני','גנרטור סינכרוני','מנוע סינכרוני','מנוע DC','גנרטור DC','הנעה חשמלית','כללי'];
+    const topicOptions = topics.map(t =>
+      `<option value="${t}" ${t === q.topic ? 'selected' : ''}>${t}</option>`
+    ).join('');
+
+    const overlay = document.createElement('div');
+    overlay.className = 'eb-edit-overlay';
+    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+    overlay.innerHTML = `
+      <div class="eb-edit-modal">
+        <h3>✏️ עריכת תרגיל #${qid}</h3>
+        <label>נושא</label>
+        <select id="edit-topic">${topicOptions}</select>
+        <label>טקסט השאלה</label>
+        <textarea id="edit-text" rows="5" dir="auto">${escapeHtml(q.text)}</textarea>
+        <label>פתרון</label>
+        <textarea id="edit-solution" rows="8" dir="auto">${escapeHtml(q.solution || '')}</textarea>
+        <div class="eb-edit-actions">
+          <button class="eb-edit-save" onclick="saveEditModal()">💾 שמור</button>
+          <button class="eb-edit-cancel" onclick="this.closest('.eb-edit-overlay').remove()">ביטול</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+  }
+
+  async function saveEditModal() {
+    if (!_editQid) return;
+    const overlay = document.querySelector('.eb-edit-overlay');
+    const btn = overlay.querySelector('.eb-edit-save');
+    btn.disabled = true;
+    btn.textContent = '⏳ שומר...';
+
+    const updates = {
+      topic: document.getElementById('edit-topic').value,
+      text: document.getElementById('edit-text').value.trim(),
+      solution: document.getElementById('edit-solution').value.trim(),
+    };
+
+    try {
+      const res = await fetch(`/api/questions/${_editQid}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      if (!res.ok) throw new Error('Server error');
+      overlay.remove();
+      showToast('✅ התרגיל עודכן');
+      await loadExerciseBank();
+    } catch (e) {
+      btn.textContent = '❌ שגיאה';
+      setTimeout(() => { btn.disabled = false; btn.textContent = '💾 שמור'; }, 2000);
+    }
+  }
+
+  // ---- Save chat answer to bank ----
+  async function saveChatToBank(btn) {
+    const bubble = btn.closest('.bubble');
+    const solution = bubble.innerText.replace(/📋 העתק|📄 פתרון נכון|💾 שמור לבנק|✓ נשמר!/g, '').trim();
+
+    // Find the user message before this bot message
+    const msgEl = bubble.closest('.message');
+    const allMsgs = Array.from(document.querySelectorAll('#messages .message'));
+    const idx = allMsgs.indexOf(msgEl);
+    let userText = '';
+    for (let i = idx - 1; i >= 0; i--) {
+      if (allMsgs[i].classList.contains('user')) {
+        userText = allMsgs[i].querySelector('.bubble')?.innerText?.trim() || '';
+        break;
+      }
+    }
+
+    if (!userText || !solution) {
+      showToast('❌ לא נמצא טקסט שאלה או פתרון');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = '⏳ שומר...';
+
+    try {
+      const res = await fetch('/api/questions/save-from-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: userText, solution })
+      });
+      const data = await res.json();
+      btn.textContent = '✓ נשמר!';
+      btn.classList.add('saved');
+      showToast(`✅ ${data.message || 'נשמר לבנק'}`);
+    } catch (e) {
+      btn.textContent = '❌ שגיאה';
+      setTimeout(() => { btn.disabled = false; btn.textContent = '💾 שמור לבנק'; }, 2000);
+    }
+  }
+
+  // ---- Drag & Drop ----
+  let _draggedQid = null;
+
+  function dragCard(event, qid) {
+    _draggedQid = qid;
+    event.target.classList.add('dragging');
+    event.dataTransfer.effectAllowed = 'move';
+  }
+
+  async function dropOnTopic(event, section) {
+    event.preventDefault();
+    section.classList.remove('drag-target');
+    if (!_draggedQid) return;
+
+    // Get the topic label from the section's data attribute
+    const topicLabel = section.dataset.topic;
+    if (!topicLabel) return;
+
+    // Map label back to the actual topic name
+    const rule = TOPIC_RULES.find(r => r.cfg.label === topicLabel);
+    const topicName = rule ? rule.keys[0] : topicLabel;
+
+    try {
+      await fetch(`/api/questions/${_draggedQid}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: topicName })
+      });
+      showToast(`✅ הועבר ל-${topicLabel}`);
+      await loadExerciseBank();
+    } catch (e) {
+      showToast('❌ שגיאה בהעברה');
+    }
+    _draggedQid = null;
+  }
+
+  async function ebUploadImage(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Show loading state
+    const btn = document.getElementById('eb-upload-btn-main');
+    const oldText = btn ? btn.textContent : '📎 חלץ מתמונה';
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '⏳ מחלץ, מתייג ופותר... (עד 3 דקות)';
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const dataUrl = e.target.result;
+      const [header, base64] = dataUrl.split(',');
+      const mimeType = header.match(/:(.*?);/)[1];
+      try {
+        const res = await fetch('/api/questions/extract-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: file.name, image_data: base64, image_mime_type: mimeType })
+        });
+        const data = await res.json();
+        const saved = data.saved || 0;
+        const dupes = data.duplicates || 0;
+        const solved = data.solved || 0;
+        const extracted = data.extracted || 0;
+
+        loadExerciseBank();
+        loadQBank();
+
+        if (saved > 0) {
+          showToast(`✅ חילוץ מתמונה הושלם! ${saved} שאלות נשמרו, ${solved} נפתרו אוטומטית.${dupes ? ` (${dupes} כפילויות דולגו)` : ''}`, 'success');
+        } else if (dupes > 0) {
+          showToast(`כל ${dupes} השאלות כבר קיימות במאגר.`, 'info');
+        } else if (extracted === 0) {
+          showToast('לא נמצאו תרגילים בתמונה', 'info');
+        } else {
+          showToast('לא נמצאו שאלות חדשות.', 'info');
+        }
+      } catch (e) {
+        showToast('שגיאה: ' + e.message, 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = oldText;
+        }
+      }
+    };
+    reader.readAsDataURL(file);
+    event.target.value = '';
+  }
 
   // ========== SIDEBAR ==========
   function toggleSidebar() {
@@ -689,13 +2230,55 @@
 
   // ========== CONVERSATIONS ==========
   async function loadConversations() {
+    // Show skeleton while loading
+    const listEl = document.getElementById('conversations-list');
+    if (listEl && !listEl.querySelector('.conv-item')) {
+      listEl.innerHTML = Array(4).fill('<div class="skeleton skeleton-conv"></div>').join('');
+    }
     try {
       const res = await fetch('/api/conversations');
+      if (!res.ok) throw new Error('Network response was not ok');
       const convs = await res.json();
+      if (!Array.isArray(convs)) throw new Error('Expected array');
       renderConversations(convs);
     } catch (e) {
       console.error('Failed to load conversations', e);
+      listEl.innerHTML =
+        '<div style="padding:12px;color:#ef4444;font-size:13px;text-align:center">שגיאה בטעינת היסטוריה</div>';
     }
+  }
+
+  function getConvIcon(title) {
+    const t = (title || '').toLowerCase();
+    if (t.includes('שנאי') || t.includes('transformer')) return '🔌';
+    if (t.includes('אסינכרוני') || t.includes('השראה') || t.includes('induction')) return '⚙️';
+    if (t.includes('סינכרוני') || t.includes('synchronous')) return '🔄';
+    if (t.includes('dc') || t.includes('DC')) return '🔋';
+    if (t.includes('הינע') || t.includes('vfd') || t.includes('chopper')) return '🏭';
+    if (t.includes('כבל') || t.includes('הגנה') || t.includes('העמס')) return '🛡️';
+    if (t.includes('מקדם') || t.includes('הספק')) return '⚡';
+    if (t.includes('תמונה') || t.includes('image')) return '🖼️';
+    return '💬';
+  }
+
+  function getDateGroup(dateStr) {
+    if (!dateStr) return 'ישן';
+    const d = new Date(dateStr);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+    const weekAgo = new Date(today); weekAgo.setDate(today.getDate() - 7);
+
+    if (d >= today) return 'היום';
+    if (d >= yesterday) return 'אתמול';
+    if (d >= weekAgo) return 'השבוע';
+    return 'ישן יותר';
+  }
+
+  function formatTime(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    return d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
   }
 
   function renderConversations(convs) {
@@ -707,16 +2290,41 @@
       return;
     }
 
+    // Group by date
+    const groups = {};
+    const groupOrder = ['היום', 'אתמול', 'השבוע', 'ישן יותר'];
     convs.forEach(conv => {
-      const item = document.createElement('div');
-      item.className = 'conv-item' + (conv.id === currentConvId ? ' active' : '');
-      item.dataset.id = conv.id;
-      item.innerHTML = `
-        <span class="conv-title" title="${escapeHtml(conv.title)}">${escapeHtml(conv.title)}</span>
-        <button class="conv-delete" onclick="deleteConv(event, '${conv.id}')" title="מחק">✕</button>
-      `;
-      item.addEventListener('click', () => loadConversation(conv.id));
-      list.appendChild(item);
+      const group = getDateGroup(conv.updated_at);
+      if (!groups[group]) groups[group] = [];
+      groups[group].push(conv);
+    });
+
+    groupOrder.forEach(groupName => {
+      const items = groups[groupName];
+      if (!items || !items.length) return;
+
+      const header = document.createElement('div');
+      header.className = 'conv-date-group';
+      header.textContent = groupName;
+      list.appendChild(header);
+
+      items.forEach(conv => {
+        const item = document.createElement('div');
+        item.className = 'conv-item' + (conv.id === currentConvId ? ' active' : '');
+        item.dataset.id = conv.id;
+        const icon = getConvIcon(conv.title);
+        const time = formatTime(conv.updated_at);
+        item.innerHTML = `
+          <span class="conv-icon">${icon}</span>
+          <div class="conv-info">
+            <div class="conv-title" title="${escapeHtml(conv.title)}">${escapeHtml(conv.title)}</div>
+            <div class="conv-time">${time}</div>
+          </div>
+          <button class="conv-delete" onclick="deleteConv(event, '${conv.id}')" title="מחק">✕</button>
+        `;
+        item.addEventListener('click', () => loadConversation(conv.id));
+        list.appendChild(item);
+      });
     });
   }
 
@@ -754,17 +2362,24 @@
   }
 
   async function deleteConv(e, convId) {
+    e.preventDefault();
     e.stopPropagation();
-    if (!confirm('למחוק שיחה זו?')) return;
+    showDeleteModal(convId);
+    return;
+    // Legacy code below not reached
+    try {
+      await fetch(`/api/conversations/${convId}`, { method: 'DELETE' });
 
-    await fetch(`/api/conversations/${convId}`, { method: 'DELETE' });
+      if (currentConvId === convId) {
+        currentConvId = null;
+        showWelcome();
+      }
 
-    if (currentConvId === convId) {
-      currentConvId = null;
-      showWelcome();
+      loadConversations();
+    } catch (err) {
+      console.error('Failed to delete conversation:', err);
+      showToast('תקלה במחיקת השיחה: ' + err.message, 'error');
     }
-
-    loadConversations();
   }
 
   function newChat() {
@@ -778,14 +2393,14 @@
   function showWelcome() {
     document.getElementById('messages').innerHTML = `
       <div id="welcome">
-        <div class="icon">⚡</div>
-        <h1>בוט מכונות חשמל</h1>
-        <p>שאל כל שאלה על מכונות חשמל — מנועי DC, מנועי AC, שנאים, גנרטורים ועוד. הבוט יפתור שלב אחר שלב עם נוסחאות.</p>
+        <div class="welcome-icon">⚡</div>
+        <h1>מה נפתור היום?</h1>
+        <p>מבחני מהט, תאוריה, ופתרון שלב-אחר-שלב</p>
         <div class="chips">
-          <div class="chip" onclick="sendChip(this)">חשב מהירות סינכרונית של מנוע אסינכרוני 4 קטבים, 50 Hz</div>
-          <div class="chip" onclick="sendChip(this)">מנוע DC טורי עם זרם עומס 20A ותנגודת עניין 0.5Ω - חשב נ.א.כ</div>
-          <div class="chip" onclick="sendChip(this)">שנאי 10kVA יחס סיבובים 1:10 - חשב זרמי צד ראשוני ומשני</div>
-          <div class="chip" onclick="sendChip(this)">Explain slip in an induction motor</div>
+          <div class="chip" onclick="sendChip(this)">🔌 שנאי 10kVA — חשב זרמים</div>
+          <div class="chip" onclick="sendChip(this)">⚙️ אסינכרוני — מהירות סינכרונית</div>
+          <div class="chip" onclick="sendChip(this)">🔋 מנוע DC — חשב EMF</div>
+          <div class="chip" onclick="sendChip(this)">📖 ניסוי ריקם vs ניסוי קצר</div>
         </div>
       </div>`;
   }
@@ -845,7 +2460,7 @@
   async function sendMessage() {
     const input = document.getElementById('user-input');
     const text = input.value.trim();
-    if (!text && !pendingImage || isLoading) return;
+    if ((!text && !pendingImage) || isLoading) return;
 
     // Clear welcome
     const welcome = document.getElementById('welcome');
@@ -860,8 +2475,8 @@
     const imageToSend = pendingImage;
     removeImage();
 
-    // Show typing indicator
-    const typingId = showTyping();
+    // Create streaming bot bubble
+    const botBubble = createStreamingBubble();
 
     isLoading = true;
     document.getElementById('send-btn').disabled = true;
@@ -876,37 +2491,139 @@
         body.image_mime_type = imageToSend.mimeType;
       }
 
-      const res = await fetch('/api/chat', {
+      const res = await fetch('/api/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
 
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || 'Server error');
+        const errData = await res.json().catch(() => ({ detail: 'Server error' }));
+        throw new Error(errData.detail || 'Server error');
       }
 
-      const data = await res.json();
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let fullText = '';
 
-      // Update conversation ID
-      if (!currentConvId) {
-        currentConvId = data.conversation_id;
-        loadConversations();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split('\n\n');
+        buffer = parts.pop();
+
+        for (const part of parts) {
+          if (!part.startsWith('data: ')) continue;
+          let parsed;
+          try { parsed = JSON.parse(part.slice(6)); } catch { continue; }
+
+          if (parsed.conversation_id) {
+            const isNew = !currentConvId;
+            currentConvId = parsed.conversation_id;
+            if (isNew) loadConversations();
+          }
+          if (parsed.chunk) {
+            fullText += parsed.chunk;
+            updateStreamingBubble(botBubble, fullText);
+          }
+          if (parsed.error) {
+            finalizeStreamingBubble(botBubble, `❌ שגיאה: ${parsed.error}`, true);
+          }
+          if (parsed.done) {
+            finalizeStreamingBubble(botBubble, fullText);
+          }
+        }
       }
-
-      removeTyping(typingId);
-      appendMessage('bot', data.response);
-      scrollToBottom();
 
     } catch (e) {
-      removeTyping(typingId);
-      appendMessage('bot', `❌ שגיאה: ${e.message}`);
+      finalizeStreamingBubble(botBubble, `❌ שגיאה: ${e.message}`, true);
     } finally {
       isLoading = false;
       document.getElementById('send-btn').disabled = false;
       input.focus();
     }
+  }
+
+  function createStreamingBubble() {
+    const messagesEl = document.getElementById('messages');
+    const msgEl = document.createElement('div');
+    msgEl.className = 'message bot';
+    msgEl.innerHTML = `
+      <div class="avatar">⚡</div>
+      <div class="bubble" dir="auto">
+        <div class="typing-indicator">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+    `;
+    messagesEl.appendChild(msgEl);
+    scrollToBottom();
+    return msgEl.querySelector('.bubble');
+  }
+
+  let _mathRenderTimer = null;
+  function updateStreamingBubble(bubble, text) {
+    bubble.innerHTML = renderMarkdown(text) + '<span class="cursor-blink">▍</span>';
+    // Debounce math rendering to avoid flicker during streaming
+    clearTimeout(_mathRenderTimer);
+    _mathRenderTimer = setTimeout(() => renderMath(bubble), 300);
+    scrollToBottom();
+  }
+
+  function finalizeStreamingBubble(bubble, text, isError = false) {
+    if (isError) {
+      bubble.innerHTML = escapeHtml(text);
+    } else {
+      bubble.innerHTML = renderMarkdown(text);
+      renderMath(bubble);
+      addBubbleActions(bubble);
+    }
+    scrollToBottom();
+  }
+
+  // ========== CORRECT SOLUTION UPLOAD ==========
+  function addBubbleActions(bubble) {
+    const actions = document.createElement('div');
+    actions.className = 'bubble-actions';
+    actions.innerHTML = `
+      <button class="action-btn" onclick="copyBubble(this)" title="העתק">📋 העתק</button>
+      <button class="save-to-bank-btn" onclick="saveChatToBank(this)" title="שמור תשובה לבנק התרגילים">💾 שמור לבנק</button>
+      <button class="action-btn" onclick="requestCorrectSolution()" title="העלה תמונה של הפתרון הנכון">📄 פתרון נכון</button>
+    `;
+    bubble.appendChild(actions);
+  }
+
+  function copyBubble(btn) {
+    const bubble = btn.closest('.bubble');
+    const text = bubble.innerText.replace(/📋 העתק|📄 פתרון נכון/g, '').trim();
+    navigator.clipboard.writeText(text).then(() => {
+      btn.classList.add('copied');
+      btn.textContent = '✓ הועתק';
+      setTimeout(() => { btn.classList.remove('copied'); btn.textContent = '📋 העתק'; }, 2000);
+    });
+  }
+
+  function requestCorrectSolution() {
+    document.getElementById('correct-solution-input').click();
+  }
+
+  function onCorrectSolutionSelected(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target.result;
+      const [header, base64] = dataUrl.split(',');
+      const mimeType = header.match(/:(.*?);/)[1];
+      pendingImage = { base64, mimeType, dataUrl, name: file.name };
+      document.getElementById('user-input').value = 'הנה הפתרון הנכון. השווה לתשובה שנתת קודם, זהה בדיוק היכן טעית ותקן עם הסבר מלא.';
+      sendMessage();
+    };
+    reader.readAsDataURL(file);
+    event.target.value = '';
   }
 
   function appendMessage(role, content, imageDataUrl = null) {
@@ -916,6 +2633,9 @@
     msgEl.className = `message ${role}`;
 
     const avatar = role === 'user' ? '👤' : '⚡';
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+
     let bubbleContent = '';
     if (imageDataUrl) {
       bubbleContent += `<img class="msg-image" src="${imageDataUrl}" alt="תמונה מצורפת" />`;
@@ -926,7 +2646,10 @@
 
     msgEl.innerHTML = `
       <div class="avatar">${avatar}</div>
-      <div class="bubble" dir="auto">${bubbleContent}</div>
+      <div>
+        <div class="bubble" dir="auto">${bubbleContent}</div>
+        <div class="msg-time">${timeStr}</div>
+      </div>
     `;
 
     messagesEl.appendChild(msgEl);
@@ -935,6 +2658,7 @@
     if (role === 'bot') {
       const bubble = msgEl.querySelector('.bubble');
       renderMath(bubble);
+      addBubbleActions(bubble);
     }
 
     scrollToBottom();
@@ -964,6 +2688,85 @@
   function removeTyping(id) {
     const el = document.getElementById(id);
     if (el) el.remove();
+  }
+
+  // ========== LIGHTBOX ==========
+  function openLightbox(src) {
+    document.getElementById('lightbox-img').src = src;
+    document.getElementById('lightbox-overlay').classList.add('active');
+  }
+
+  function downloadLightboxImg() {
+    const src = document.getElementById('lightbox-img').src;
+    const a = document.createElement('a');
+    a.href = src;
+    a.download = 'circuit-diagram.png';
+    a.click();
+  }
+
+  // ESC closes lightbox and modals
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      document.getElementById('lightbox-overlay').classList.remove('active');
+      closeDeleteModal();
+      closeExamPicker();
+    }
+  });
+
+  // ========== DELETE MODAL ==========
+  let pendingDeleteConvId = null;
+
+  function showDeleteModal(convId) {
+    pendingDeleteConvId = convId;
+    document.getElementById('delete-modal').classList.add('active');
+    document.getElementById('confirm-delete-btn').onclick = confirmDeleteConv;
+  }
+
+  function closeDeleteModal() {
+    document.getElementById('delete-modal').classList.remove('active');
+    pendingDeleteConvId = null;
+  }
+
+  async function confirmDeleteConv() {
+    if (!pendingDeleteConvId) return;
+    const convId = pendingDeleteConvId;
+    closeDeleteModal();
+    try {
+      await fetch(`/api/conversations/${convId}`, { method: 'DELETE' });
+      if (currentConvId === convId) {
+        currentConvId = null;
+        showWelcome();
+      }
+      loadConversations();
+    } catch (err) {
+      showToast('שגיאה במחיקה', 'error');
+    }
+  }
+
+  // ========== SIDEBAR SEARCH ==========
+  function filterConversations(query) {
+    const items = document.querySelectorAll('.conv-item');
+    const groups = document.querySelectorAll('.conv-date-group');
+    const q = query.trim().toLowerCase();
+    if (!q) {
+      items.forEach(el => el.style.display = '');
+      groups.forEach(el => el.style.display = '');
+      return;
+    }
+    items.forEach(el => {
+      const title = el.querySelector('.conv-title')?.textContent.toLowerCase() || '';
+      el.style.display = title.includes(q) ? '' : 'none';
+    });
+    // Hide empty groups
+    groups.forEach(g => {
+      let next = g.nextElementSibling;
+      let hasVisible = false;
+      while (next && !next.classList.contains('conv-date-group')) {
+        if (next.style.display !== 'none') hasVisible = true;
+        next = next.nextElementSibling;
+      }
+      g.style.display = hasVisible ? '' : 'none';
+    });
   }
 
   // ========== RENDERING ==========
@@ -998,9 +2801,297 @@
       .replace(/"/g, '&quot;');
   }
 
+  // ========== QUESTION BANK ==========
+  let qbankOpen = false;
+
+  function toggleQBank() {
+    qbankOpen = !qbankOpen;
+    document.getElementById('qbank-panel').style.display = qbankOpen ? 'block' : 'none';
+    if (qbankOpen) loadQBank();
+  }
+
+  async function loadQBank() {
+    try {
+      const res = await fetch('/api/questions');
+      const questions = await res.json();
+      renderQBank(questions);
+    } catch (e) {
+      document.getElementById('qbank-list').innerHTML = '<div class="qbank-empty">שגיאה בטעינה</div>';
+    }
+  }
+
+  function renderQBank(questions) {
+    const badge = document.getElementById('qbank-count-badge');
+    if (questions.length) {
+      badge.textContent = questions.length;
+      badge.style.display = '';
+    } else {
+      badge.style.display = 'none';
+    }
+
+    const list = document.getElementById('qbank-list');
+    if (!questions.length) {
+      list.innerHTML = '<div class="qbank-empty">אין שאלות עדיין — חלץ ממבחנים או מתמונה</div>';
+      return;
+    }
+
+    // Group by topic
+    const groups = {};
+    questions.forEach(q => {
+      const topic = q.topic || 'כללי';
+      if (!groups[topic]) groups[topic] = [];
+      groups[topic].push(q);
+    });
+
+    const topicIcons = {
+      'שנאים': '🔌', 'שנאי': '🔌',
+      'מנוע אסינכרוני': '⚙️', 'אסינכרוני': '⚙️', 'מנוע השראה': '⚙️',
+      'גנרטור סינכרוני': '🔄', 'סינכרוני': '🔄', 'מנוע סינכרוני': '🔄',
+      'DC': '🔋', 'מנוע DC': '🔋', 'גנרטור DC': '🔋',
+      'הינע חשמלי': '🏭', 'כללי': '📋'
+    };
+
+    const getIcon = (topic) => {
+      for (const [key, icon] of Object.entries(topicIcons)) {
+        if (topic.includes(key)) return icon;
+      }
+      return '📋';
+    };
+
+    list.innerHTML = Object.entries(groups).map(([topic, qs]) => `
+      <div class="qbank-topic-group">
+        <div class="qbank-topic-header" onclick="this.parentElement.classList.toggle('collapsed')">
+          <span>${getIcon(topic)} ${escapeHtml(topic)}</span>
+          <span class="qbank-topic-count">${qs.length}</span>
+        </div>
+        <div class="qbank-topic-items">
+          ${qs.map(q => `
+            <div class="qbank-item">
+              ${q.image_url ? `<img class="qbank-img" src="${q.image_url}" onclick="openLightbox('${q.image_url}')" alt="תמונת שאלה" />` : ''}
+              <div class="qbank-text">${escapeHtml(q.text)}</div>
+              ${q.solution ? `
+                <button class="qbank-toggle-solution" onclick="toggleSolution(this)">▼ הצג פתרון</button>
+                <div class="qbank-solution">${escapeHtml(q.solution)}</div>
+              ` : ''}
+              <div class="qbank-item-actions">
+                <button class="qbank-ask-btn" onclick="askQuestion('${encodeURIComponent(q.text)}')">▶ שאל</button>
+                <button class="qbank-del-btn" onclick="deleteQuestion(${q.id})">✕</button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function toggleSolution(btn) {
+    const sol = btn.nextElementSibling;
+    const visible = sol.classList.toggle('visible');
+    btn.textContent = visible ? '▲ הסתר פתרון' : '▼ הצג פתרון';
+  }
+
+  async function deleteQuestion(id) {
+    await fetch(`/api/questions/${id}`, { method: 'DELETE' });
+    loadQBank();
+  }
+
+  function askQuestion(encodedText) {
+    const text = decodeURIComponent(encodedText);
+    newChat();
+    document.getElementById('user-input').value = text;
+    document.getElementById('user-input').focus();
+    autoResize(document.getElementById('user-input'));
+  }
+
+  // ========== EXAM PICKER ==========
+  function openExamPicker() {
+    const overlay = document.getElementById('exam-picker-overlay');
+    overlay.classList.add('active');
+    loadExamList();
+  }
+  function closeExamPicker() {
+    document.getElementById('exam-picker-overlay').classList.remove('active');
+  }
+
+  async function loadExamList() {
+    const listEl = document.getElementById('exam-picker-list');
+    listEl.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted)">טוען מבחנים...</div>';
+    try {
+      const res = await fetch('/api/exams');
+      const exams = await res.json();
+      if (!exams.length) {
+        listEl.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted)">לא נמצאו קבצי מבחנים</div>';
+        return;
+      }
+      // Group by exam code
+      const groups = {};
+      exams.forEach(e => {
+        if (!groups[e.code]) groups[e.code] = [];
+        groups[e.code].push(e);
+      });
+      let html = '';
+      for (const [code, items] of Object.entries(groups)) {
+        const groupName = items[0].label.split('—')[0].trim();
+        html += `<div class="exam-group-label">${groupName} (${code}) — ${items.length} מבחנים</div>`;
+        items.forEach(e => {
+          const icon = e.has_pdf ? '📷' : '📄';
+          const pdfBadge = e.has_pdf ? '<span style="font-size:10px;background:rgba(34,197,94,0.15);color:#22c55e;padding:2px 6px;border-radius:4px;margin-right:6px">כולל סרטוטים</span>' : '';
+          html += `<div class="exam-item" onclick="pickExam('${e.file}', this)">
+            <span class="exam-icon">${icon}</span>
+            <span class="exam-label">${e.label} ${pdfBadge}</span>
+          </div>`;
+        });
+      }
+      listEl.innerHTML = html;
+    } catch (e) {
+      listEl.innerHTML = `<div style="text-align:center;padding:30px;color:#ef4444">שגיאה: ${e.message}</div>`;
+    }
+  }
+
+  async function pickExam(filename, itemEl) {
+    // Disable all items during extraction
+    const allItems = document.querySelectorAll('.exam-item');
+    allItems.forEach(el => { el.style.pointerEvents = 'none'; el.style.opacity = '0.5'; });
+    if (itemEl) {
+      itemEl.style.opacity = '1';
+      itemEl.innerHTML = `<span class="exam-icon">⏳</span><span class="exam-label">מחלץ, מתייג ופותר שאלות... (עד 5 דקות)</span>`;
+    }
+
+    try {
+      const res = await fetch('/api/questions/extract-exams', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ exam_file: filename })
+      });
+      const data = await res.json();
+      const method = data.method || 'text';
+      const saved = data.saved || 0;
+      const dupes = data.duplicates || 0;
+      const solved = data.solved || 0;
+      const extracted = data.extracted || 0;
+
+      loadExerciseBank();
+      loadQBank();
+      closeExamPicker();
+
+      const imgNote = method === 'pdf_vision' ? ' 📷' : '';
+      if (saved > 0) {
+        showToast(`✅ חילוץ הושלם!${imgNote} ${saved} שאלות נשמרו, ${solved} נפתרו אוטומטית.${dupes ? ` (${dupes} כפילויות דולגו)` : ''}`, 'success');
+      } else if (dupes > 0) {
+        showToast(`כל ${dupes} השאלות כבר קיימות במאגר.`, 'info');
+      } else if (extracted === 0) {
+        showToast('לא נמצאו שאלות במבחן הזה.', 'info');
+      } else {
+        showToast('לא נמצאו שאלות חדשות.', 'info');
+      }
+    } catch (e) {
+      showToast('שגיאה: ' + e.message, 'error');
+    } finally {
+      // Re-enable items
+      allItems.forEach(el => { el.style.pointerEvents = ''; el.style.opacity = ''; });
+      loadExamList(); // refresh list
+    }
+  }
+
+  async function extractFromImageFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const dataUrl = e.target.result;
+      const [header, base64] = dataUrl.split(',');
+      const mimeType = header.match(/:(.*?);/)[1];
+      try {
+        const res = await fetch('/api/questions/extract-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: '', image_data: base64, image_mime_type: mimeType })
+        });
+        const data = await res.json();
+        showExtractedQuestions(data.questions, file.name, data.image_url || '');
+      } catch (e) {
+        showToast('שגיאה: ' + e.message, 'error');
+      }
+    };
+    reader.readAsDataURL(file);
+    event.target.value = '';
+  }
+
+  function showExtractedQuestions(questions, source, imageUrl) {
+    const list = document.getElementById('qbank-list');
+    if (!questions || !questions.length) {
+      list.innerHTML = '<div class="qbank-empty">לא נמצאו שאלות</div>';
+      return;
+    }
+    const imgAttr = imageUrl ? ` data-image-url="${escapeHtml(imageUrl)}"` : '';
+    const itemsHtml = questions.map((q, i) => {
+      const text = typeof q === 'string' ? q : q.text;
+      const topic = typeof q === 'string' ? '' : (q.topic || '');
+      return `<div class="extracted-item">
+        <label>
+          <input type="checkbox" checked data-text="${escapeHtml(text)}" data-topic="${escapeHtml(topic)}"${imgAttr}>
+          <span>${escapeHtml(text)}${topic ? ` <em style="color:var(--text-muted)">(${escapeHtml(topic)})</em>` : ''}</span>
+        </label>
+      </div>`;
+    }).join('');
+
+    list.innerHTML = `
+      <div class="extracted-panel">
+        ${imageUrl ? `<img class="extracted-preview-img" src="${imageUrl}" onclick="openLightbox('${imageUrl}')" alt="תמונת מקור" />` : ''}
+        <div class="extracted-title">נמצאו ${questions.length} שאלות מ${escapeHtml(source)}:</div>
+        ${itemsHtml}
+        <div class="extracted-actions">
+          <button class="qbank-btn" onclick="saveSelectedQuestions('${escapeHtml(source)}')">💾 שמור מסומנים</button>
+          <button class="qbank-btn" onclick="loadQBank()">ביטול</button>
+        </div>
+      </div>`;
+  }
+
+  async function saveSelectedQuestions(source) {
+    const checkboxes = document.querySelectorAll('.extracted-item input[type=checkbox]:checked');
+    await Promise.all(Array.from(checkboxes).map(cb =>
+      fetch('/api/questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: cb.dataset.text,
+          topic: cb.dataset.topic,
+          source,
+          solution: cb.dataset.solution || '',
+          image_url: cb.dataset.imageUrl || ''
+        })
+      })
+    ));
+    loadQBank();
+    loadExerciseBank();
+  }
+
   function scrollToBottom() {
     const el = document.getElementById('messages');
     el.scrollTop = el.scrollHeight;
+  }
+
+  // ========== SCROLL-TO-BOTTOM BUTTON ==========
+  document.getElementById('messages').addEventListener('scroll', function() {
+    const el = this;
+    const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const btn = document.getElementById('scroll-bottom-btn');
+    if (btn) {
+      btn.classList.toggle('visible', distFromBottom > 200);
+    }
+  });
+
+  // ========== TOAST NOTIFICATIONS ==========
+  function showToast(message, type = 'info', duration = 3000) {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.innerHTML = `<span>${message}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.classList.add('removing');
+      setTimeout(() => toast.remove(), 300);
+    }, duration);
   }
 </script>
 </body>
