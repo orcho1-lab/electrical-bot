@@ -3,3 +3,5 @@ uvicorn==0.30.6
 google-generativeai==0.8.3
 python-dotenv==1.0.1
 pymupdf
+psycopg2-binary
+google-cloud-storage

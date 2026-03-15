@@ -221,19 +221,39 @@ CORRECTION_TRIGGER = "הנה הפתרון הנכון"
 UPLOADS_DIR = os.path.join("static", "uploads")
 os.makedirs(UPLOADS_DIR, exist_ok=True)
 
+# ── Google Cloud Storage (optional) ──────────────────────────────────────────
+GCS_BUCKET = os.environ.get("GCS_BUCKET")  # e.g. "my-project-bot-uploads"
+_gcs_client = None
+if GCS_BUCKET:
+    try:
+        from google.cloud import storage as _gcs
+        _gcs_client = _gcs.Client()
+        print(f"[INIT] GCS uploads enabled → gs://{GCS_BUCKET}/uploads/")
+    except Exception as _e:
+        print(f"[WARN] GCS init failed: {_e}. Falling back to local disk.")
+        GCS_BUCKET = None
 
-def _save_image_to_disk(image_b64: str, mime_type: str) -> str:
-    """Save base64 image to static/uploads/ and return the URL path."""
-    ext = "jpg"
-    if "png" in mime_type:
-        ext = "png"
-    elif "webp" in mime_type:
-        ext = "webp"
+
+def _save_image(image_b64: str, mime_type: str) -> str:
+    """Save image to GCS (Cloud Run) or local disk (dev). Returns public URL or /uploads/path."""
+    ext = "png" if "png" in mime_type else ("webp" if "webp" in mime_type else "jpg")
     filename = f"{_uuid.uuid4().hex}.{ext}"
-    filepath = os.path.join(UPLOADS_DIR, filename)
-    with open(filepath, "wb") as f:
-        f.write(base64.b64decode(image_b64))
-    return f"/uploads/{filename}"
+    img_bytes = base64.b64decode(image_b64)
+
+    if GCS_BUCKET and _gcs_client:
+        blob = _gcs_client.bucket(GCS_BUCKET).blob(f"uploads/{filename}")
+        blob.upload_from_string(img_bytes, content_type=mime_type)
+        blob.make_public()
+        return blob.public_url  # https://storage.googleapis.com/BUCKET/uploads/filename
+    else:
+        filepath = os.path.join(UPLOADS_DIR, filename)
+        with open(filepath, "wb") as f:
+            f.write(img_bytes)
+        return f"/uploads/{filename}"
+
+
+# Keep old name as alias so existing callers don't break
+_save_image_to_disk = _save_image
 
 
 # ========== BACKGROUND LEARNING HELPERS ==========

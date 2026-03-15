@@ -1,30 +1,112 @@
+"""Database layer — SQLite locally, PostgreSQL on Cloud Run.
+
+Set DATABASE_URL env var to a postgres:// connection string to use PostgreSQL.
+Leave unset to use SQLite (default: conversations.db).
+"""
+import os
 import re
 import sqlite3
 import uuid
-from datetime import datetime
+from contextlib import contextmanager
 
+DATABASE_URL = os.environ.get("DATABASE_URL")
+_USE_PG = bool(DATABASE_URL)
+
+if _USE_PG:
+    import psycopg2
+    import psycopg2.extras
+
+
+# ---------------------------------------------------------------------------
+# Text normalization (shared)
+# ---------------------------------------------------------------------------
 
 def _normalize_text(text: str) -> str:
     """Normalize question text for duplicate comparison."""
     t = text.strip()
-    t = re.sub(r'\s+', ' ', t)           # collapse whitespace
-    t = re.sub(r'[.,;:!?()\'\"]+', '', t) # remove punctuation
+    t = re.sub(r'\s+', ' ', t)
+    t = re.sub(r'[.,;:!?()\'\"]+', '', t)
     return t.lower()
 
 
+# ---------------------------------------------------------------------------
+# Connection context manager
+# ---------------------------------------------------------------------------
+
+@contextmanager
+def _open_conn(db_path: str):
+    """Open a DB connection, commit on success, rollback + close on error."""
+    if _USE_PG:
+        conn = psycopg2.connect(
+            DATABASE_URL,
+            cursor_factory=psycopg2.extras.RealDictCursor,
+        )
+    else:
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# SQL helpers
+# ---------------------------------------------------------------------------
+
+def _exec(conn, sql: str, params=()):
+    """Execute SQL, converting ? → %s for PostgreSQL. Returns cursor."""
+    if _USE_PG:
+        sql = sql.replace("?", "%s")
+        cur = conn.cursor()
+        cur.execute(sql, params)
+        return cur
+    else:
+        return conn.execute(sql, params)
+
+
+def _rows(cursor_or_list) -> list[dict]:
+    """Fetch all rows as plain dicts."""
+    if isinstance(cursor_or_list, list):
+        return [dict(r) for r in cursor_or_list]
+    rows = cursor_or_list.fetchall()
+    return [dict(r) for r in rows]
+
+
+def _insert_returning_id(conn, sql: str, params: tuple) -> int:
+    """INSERT … RETURNING id (PG) or lastrowid (SQLite)."""
+    if _USE_PG:
+        sql_pg = sql.replace("?", "%s") + " RETURNING id"
+        cur = conn.cursor()
+        cur.execute(sql_pg, params)
+        return cur.fetchone()["id"]
+    else:
+        cur = conn.execute(sql, params)
+        return cur.lastrowid
+
+
+# ---------------------------------------------------------------------------
+# Database class
+# ---------------------------------------------------------------------------
+
 class Database:
-    def __init__(self, db_path="conversations.db"):
+    def __init__(self, db_path: str = "conversations.db"):
         self.db_path = db_path
         self.init_db()
 
-    def get_connection(self):
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        return conn
+    def _conn(self):
+        return _open_conn(self.db_path)
+
+    # ── Schema ──────────────────────────────────────────────────────────────
 
     def init_db(self):
-        with self.get_connection() as conn:
-            conn.execute("""
+        pk_auto = "SERIAL PRIMARY KEY" if _USE_PG else "INTEGER PRIMARY KEY AUTOINCREMENT"
+        with self._conn() as conn:
+            _exec(conn, f"""
                 CREATE TABLE IF NOT EXISTS conversations (
                     id TEXT PRIMARY KEY,
                     title TEXT,
@@ -32,7 +114,7 @@ class Database:
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
-            conn.execute("""
+            _exec(conn, f"""
                 CREATE TABLE IF NOT EXISTS messages (
                     id TEXT PRIMARY KEY,
                     conversation_id TEXT,
@@ -42,180 +124,194 @@ class Database:
                     FOREIGN KEY (conversation_id) REFERENCES conversations(id)
                 )
             """)
-            conn.execute("""
+            _exec(conn, f"""
                 CREATE TABLE IF NOT EXISTS learnings (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id {pk_auto},
                     summary TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
-            conn.execute("""
+            _exec(conn, f"""
                 CREATE TABLE IF NOT EXISTS questions (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id {pk_auto},
                     text TEXT NOT NULL,
                     topic TEXT DEFAULT '',
                     source TEXT DEFAULT '',
                     solution TEXT DEFAULT '',
                     image_url TEXT DEFAULT '',
+                    difficulty INTEGER DEFAULT 0,
+                    sort_order INTEGER DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
-            # Migrations: add columns that may be missing from older table versions
-            for col, typedef in [
-                ("solution", "TEXT DEFAULT ''"),
-                ("image_url", "TEXT DEFAULT ''"),
-                ("difficulty", "INTEGER DEFAULT 0"),
-                ("sort_order", "INTEGER DEFAULT 0"),
+
+            # SQLite-only: add columns missing from older DB versions
+            if not _USE_PG:
+                for col, typedef in [
+                    ("solution", "TEXT DEFAULT ''"),
+                    ("image_url", "TEXT DEFAULT ''"),
+                    ("difficulty", "INTEGER DEFAULT 0"),
+                    ("sort_order", "INTEGER DEFAULT 0"),
+                ]:
+                    try:
+                        conn.execute(f"ALTER TABLE questions ADD COLUMN {col} {typedef}")
+                    except Exception:
+                        pass
+
+            for idx in [
+                "CREATE INDEX IF NOT EXISTS idx_questions_topic ON questions(topic)",
+                "CREATE INDEX IF NOT EXISTS idx_questions_source ON questions(source)",
+                "CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages(conversation_id)",
+                "CREATE INDEX IF NOT EXISTS idx_conv_updated ON conversations(updated_at)",
             ]:
                 try:
-                    conn.execute(f"ALTER TABLE questions ADD COLUMN {col} {typedef}")
+                    _exec(conn, idx)
                 except Exception:
-                    pass  # column already exists
+                    pass
 
-            # Indexes for performance
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_questions_topic ON questions(topic)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_questions_source ON questions(source)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages(conversation_id)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_conv_updated ON conversations(updated_at)")
+    # ── Conversations ────────────────────────────────────────────────────────
 
-    def create_conversation(self, title="שיחה חדשה"):
+    def create_conversation(self, title: str = "שיחה חדשה") -> str:
         conv_id = str(uuid.uuid4())
-        with self.get_connection() as conn:
-            conn.execute(
-                "INSERT INTO conversations (id, title) VALUES (?, ?)",
-                (conv_id, title)
-            )
+        with self._conn() as conn:
+            _exec(conn, "INSERT INTO conversations (id, title) VALUES (?, ?)", (conv_id, title))
         return conv_id
 
-    def update_conversation_title(self, conv_id, title):
-        with self.get_connection() as conn:
-            conn.execute(
-                "UPDATE conversations SET title=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                (title, conv_id)
-            )
+    def update_conversation_title(self, conv_id: str, title: str):
+        with self._conn() as conn:
+            _exec(conn,
+                  "UPDATE conversations SET title=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                  (title, conv_id))
 
-    def get_conversations(self, search: str = ""):
-        with self.get_connection() as conn:
+    def get_conversations(self, search: str = "") -> list[dict]:
+        with self._conn() as conn:
             if search:
-                rows = conn.execute(
-                    "SELECT * FROM conversations WHERE title LIKE ? ORDER BY updated_at DESC",
-                    (f"%{search}%",)
-                ).fetchall()
+                cur = _exec(conn,
+                            "SELECT * FROM conversations WHERE title LIKE ? ORDER BY updated_at DESC",
+                            (f"%{search}%",))
             else:
-                rows = conn.execute(
-                    "SELECT * FROM conversations ORDER BY updated_at DESC"
-                ).fetchall()
-        return [dict(row) for row in rows]
+                cur = _exec(conn, "SELECT * FROM conversations ORDER BY updated_at DESC")
+            return _rows(cur)
 
-    def save_message(self, conversation_id, role, content):
+    def delete_conversation(self, conv_id: str):
+        with self._conn() as conn:
+            _exec(conn, "DELETE FROM messages WHERE conversation_id=?", (conv_id,))
+            _exec(conn, "DELETE FROM conversations WHERE id=?", (conv_id,))
+
+    # ── Messages ─────────────────────────────────────────────────────────────
+
+    def save_message(self, conversation_id: str, role: str, content: str):
         msg_id = str(uuid.uuid4())
-        with self.get_connection() as conn:
-            conn.execute(
-                "INSERT INTO messages (id, conversation_id, role, content) VALUES (?, ?, ?, ?)",
-                (msg_id, conversation_id, role, content)
-            )
-            conn.execute(
-                "UPDATE conversations SET updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                (conversation_id,)
-            )
+        with self._conn() as conn:
+            _exec(conn,
+                  "INSERT INTO messages (id, conversation_id, role, content) VALUES (?, ?, ?, ?)",
+                  (msg_id, conversation_id, role, content))
+            _exec(conn,
+                  "UPDATE conversations SET updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                  (conversation_id,))
 
-    def get_messages(self, conversation_id):
-        with self.get_connection() as conn:
-            rows = conn.execute(
-                "SELECT * FROM messages WHERE conversation_id=? ORDER BY created_at ASC",
-                (conversation_id,)
-            ).fetchall()
-        return [dict(row) for row in rows]
+    def get_messages(self, conversation_id: str) -> list[dict]:
+        with self._conn() as conn:
+            cur = _exec(conn,
+                        "SELECT * FROM messages WHERE conversation_id=? ORDER BY created_at ASC",
+                        (conversation_id,))
+            return _rows(cur)
 
-    def delete_conversation(self, conversation_id):
-        with self.get_connection() as conn:
-            conn.execute("DELETE FROM messages WHERE conversation_id=?", (conversation_id,))
-            conn.execute("DELETE FROM conversations WHERE id=?", (conversation_id,))
+    # ── Learnings ─────────────────────────────────────────────────────────────
 
     def save_learning(self, summary: str):
-        with self.get_connection() as conn:
-            conn.execute("INSERT INTO learnings (summary) VALUES (?)", (summary,))
+        with self._conn() as conn:
+            _exec(conn, "INSERT INTO learnings (summary) VALUES (?)", (summary,))
 
-    def get_learnings(self) -> list:
-        with self.get_connection() as conn:
-            rows = conn.execute(
-                "SELECT summary FROM learnings ORDER BY created_at DESC LIMIT 20"
-            ).fetchall()
-        return [row["summary"] for row in rows]
+    def get_learnings(self) -> list[str]:
+        with self._conn() as conn:
+            cur = _exec(conn,
+                        "SELECT summary FROM learnings ORDER BY created_at DESC LIMIT 20")
+            return [r["summary"] for r in _rows(cur)]
+
+    # ── Questions ─────────────────────────────────────────────────────────────
 
     def question_exists(self, text: str) -> bool:
-        """Check if a question with similar text already exists (normalized comparison)."""
         normalized = _normalize_text(text)
         if not normalized:
             return False
-        with self.get_connection() as conn:
-            rows = conn.execute("SELECT text FROM questions").fetchall()
-            for row in rows:
-                if _normalize_text(row["text"]) == normalized:
-                    return True
-                # Also check if one is a substring of the other (>80% overlap)
+        with self._conn() as conn:
+            cur = _exec(conn, "SELECT text FROM questions")
+            for row in _rows(cur):
                 existing = _normalize_text(row["text"])
+                if existing == normalized:
+                    return True
                 if len(normalized) > 20 and len(existing) > 20:
-                    shorter, longer = (normalized, existing) if len(normalized) <= len(existing) else (existing, normalized)
+                    shorter, longer = (
+                        (normalized, existing) if len(normalized) <= len(existing)
+                        else (existing, normalized)
+                    )
                     if shorter in longer:
                         return True
-            return False
+        return False
 
-    def save_question(self, text: str, topic: str = "", source: str = "", solution: str = "", image_url: str = "") -> int:
-        with self.get_connection() as conn:
-            cursor = conn.execute(
+    def save_question(self, text: str, topic: str = "", source: str = "",
+                      solution: str = "", image_url: str = "") -> int:
+        with self._conn() as conn:
+            return _insert_returning_id(
+                conn,
                 "INSERT INTO questions (text, topic, source, solution, image_url) VALUES (?, ?, ?, ?, ?)",
-                (text, topic, source, solution, image_url)
+                (text, topic, source, solution, image_url),
             )
-            return cursor.lastrowid
 
-    def get_questions(self) -> list:
-        with self.get_connection() as conn:
-            rows = conn.execute(
-                "SELECT * FROM questions ORDER BY created_at DESC"
-            ).fetchall()
-        return [dict(row) for row in rows]
+    def get_questions(self) -> list[dict]:
+        with self._conn() as conn:
+            cur = _exec(conn, "SELECT * FROM questions ORDER BY created_at DESC")
+            return _rows(cur)
 
     def update_question(self, question_id: int, **fields):
-        """Update specific fields of a question."""
         if not fields:
             return
-        set_clause = ", ".join(f"{k}=?" for k in fields)
+        ph = "%s" if _USE_PG else "?"
+        set_clause = ", ".join(f"{k}={ph}" for k in fields)
         values = list(fields.values()) + [question_id]
-        with self.get_connection() as conn:
-            conn.execute(f"UPDATE questions SET {set_clause} WHERE id=?", values)
+        with self._conn() as conn:
+            _exec(conn, f"UPDATE questions SET {set_clause} WHERE id={ph}", values)
 
-    def get_unsolved_questions(self) -> list:
-        """Get all questions that don't have a solution yet."""
-        with self.get_connection() as conn:
-            rows = conn.execute(
-                "SELECT * FROM questions WHERE solution IS NULL OR solution = '' ORDER BY id"
-            ).fetchall()
-        return [dict(row) for row in rows]
+    def get_unsolved_questions(self) -> list[dict]:
+        with self._conn() as conn:
+            cur = _exec(conn,
+                        "SELECT * FROM questions WHERE solution IS NULL OR solution = '' ORDER BY id")
+            return _rows(cur)
+
+    def get_solved_questions(self) -> list[dict]:
+        with self._conn() as conn:
+            cur = _exec(conn,
+                        "SELECT id, text, topic, solution FROM questions "
+                        "WHERE solution IS NOT NULL AND solution != '' ORDER BY id")
+            return _rows(cur)
+
+    def delete_question(self, question_id: int):
+        with self._conn() as conn:
+            _exec(conn, "DELETE FROM questions WHERE id=?", (question_id,))
 
     def deduplicate_questions(self) -> int:
-        """Remove duplicate questions, keeping the oldest (lowest id) of each group.
-        Returns the number of duplicates removed.
-        """
-        with self.get_connection() as conn:
-            rows = conn.execute("SELECT id, text FROM questions ORDER BY id ASC").fetchall()
+        with self._conn() as conn:
+            cur = _exec(conn, "SELECT id, text FROM questions ORDER BY id ASC")
+            rows = _rows(cur)
 
-        seen = {}  # normalized_text -> first id
-        to_delete = []
+        seen: dict[str, int] = {}
+        to_delete: list[int] = []
 
         for row in rows:
             norm = _normalize_text(row["text"])
             if not norm:
                 continue
-            # Check exact match
             if norm in seen:
                 to_delete.append(row["id"])
                 continue
-            # Check substring overlap
             is_dup = False
-            for existing_norm, existing_id in seen.items():
+            for existing_norm in seen:
                 if len(norm) > 20 and len(existing_norm) > 20:
-                    shorter, longer = (norm, existing_norm) if len(norm) <= len(existing_norm) else (existing_norm, norm)
+                    shorter, longer = (
+                        (norm, existing_norm) if len(norm) <= len(existing_norm)
+                        else (existing_norm, norm)
+                    )
                     if shorter in longer:
                         to_delete.append(row["id"])
                         is_dup = True
@@ -224,21 +320,9 @@ class Database:
                 seen[norm] = row["id"]
 
         if to_delete:
-            with self.get_connection() as conn:
-                placeholders = ",".join("?" * len(to_delete))
-                conn.execute(f"DELETE FROM questions WHERE id IN ({placeholders})", to_delete)
+            ph = "%s" if _USE_PG else "?"
+            placeholders = ",".join([ph] * len(to_delete))
+            with self._conn() as conn:
+                _exec(conn, f"DELETE FROM questions WHERE id IN ({placeholders})", to_delete)
 
         return len(to_delete)
-
-    def get_solved_questions(self) -> list:
-        """Get all questions that have a non-empty solution."""
-        with self.get_connection() as conn:
-            rows = conn.execute(
-                "SELECT id, text, topic, solution FROM questions "
-                "WHERE solution IS NOT NULL AND solution != '' ORDER BY id"
-            ).fetchall()
-        return [dict(row) for row in rows]
-
-    def delete_question(self, question_id: int):
-        with self.get_connection() as conn:
-            conn.execute("DELETE FROM questions WHERE id=?", (question_id,))
