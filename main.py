@@ -1,4 +1,5 @@
 import base64
+import collections
 import glob as _glob
 import json
 import os
@@ -12,8 +13,9 @@ import fitz  # PyMuPDF — PDF → image conversion
 
 import google.generativeai as genai
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -24,6 +26,102 @@ load_dotenv()
 
 app = FastAPI(title="Electrical Machines Bot")
 db = Database()
+
+# ========== SECURITY: AUTH + RATE LIMITING ==========
+
+SITE_PASSWORD = os.environ.get("SITE_PASSWORD", "mahat2025")
+_active_tokens: set = set()
+
+# Rate limiting: token → deque of timestamps
+_rate_limits: dict = {}
+_RATE_CHAT = 30       # max chat requests per minute
+_RATE_UPLOAD = 5      # max uploads per minute
+_RATE_WINDOW = 60     # seconds
+
+
+def _check_rate_limit(token: str, category: str = "chat") -> bool:
+    """Return True if request is allowed, False if rate limited."""
+    limit = _RATE_CHAT if category == "chat" else _RATE_UPLOAD
+    key = f"{token}:{category}"
+    now = time.time()
+    if key not in _rate_limits:
+        _rate_limits[key] = collections.deque()
+    dq = _rate_limits[key]
+    # Remove old entries
+    while dq and dq[0] < now - _RATE_WINDOW:
+        dq.popleft()
+    if len(dq) >= limit:
+        return False
+    dq.append(now)
+    return True
+
+
+# CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Restrict in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    """Check auth token for all /api/* routes except login and static files."""
+    path = request.url.path
+
+    # Allow: static files, login endpoint, and OPTIONS (CORS preflight)
+    if not path.startswith("/api/") or path == "/api/auth/login" or request.method == "OPTIONS":
+        response = await call_next(request)
+        # Add security headers
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        return response
+
+    # Check Authorization header
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return JSONResponse(status_code=401, content={"detail": "לא מחובר — נא להתחבר"})
+
+    token = auth_header.split(" ", 1)[1]
+    if token not in _active_tokens:
+        return JSONResponse(status_code=401, content={"detail": "הסשן פג — נא להתחבר מחדש"})
+
+    # Rate limit check for chat/upload endpoints
+    if "/chat" in path:
+        if not _check_rate_limit(token, "chat"):
+            return JSONResponse(status_code=429, content={"detail": "יותר מדי בקשות — נסה שוב בעוד דקה"})
+    elif "/extract" in path or "/upload" in path:
+        if not _check_rate_limit(token, "upload"):
+            return JSONResponse(status_code=429, content={"detail": "יותר מדי העלאות — נסה שוב בעוד דקה"})
+
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    return response
+
+
+class LoginRequest(BaseModel):
+    password: str
+
+
+@app.post("/api/auth/login")
+async def login(request: LoginRequest):
+    if request.password != SITE_PASSWORD:
+        raise HTTPException(status_code=403, detail="סיסמה שגויה")
+    token = _uuid.uuid4().hex
+    _active_tokens.add(token)
+    return {"token": token}
+
+
+@app.post("/api/auth/logout")
+async def logout(request: Request):
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header.split(" ", 1)[1]
+        _active_tokens.discard(token)
+    return {"status": "ok"}
 
 api_key = os.environ.get("GEMINI_API_KEY")
 if not api_key:
@@ -82,6 +180,15 @@ if _theory_text:
 
 _total_tokens = len(FULL_SYSTEM_PROMPT) // 4
 print(f"[INIT] Total system prompt: {len(FULL_SYSTEM_PROMPT):,} chars (~{_total_tokens:,} tokens, {_total_tokens/10000:.1f}% of 1M context)")
+
+_LOCAL_EXAMS_DIR = os.path.join(_BASE_DIR, "local_exams")
+_TEXT_PAGE_MIN_CHARS = 100  # chars below this threshold → page is likely a diagram → Vision
+
+
+def _is_reference_file(filename: str) -> bool:
+    """Return True if the file is reference material (no question extraction)."""
+    name = filename.lower()
+    return any(kw in name for kw in ["נוסחאון", "הרצאה", "lecture", "formula"])
 
 _chat_gen_config = genai.GenerationConfig(
     temperature=0.3,
@@ -473,6 +580,49 @@ def _process_and_save_questions(questions: list, source: str, default_image_url:
     return {"saved": saved, "duplicates": duplicates, "solved": solved, "results": results}
 
 
+# ========== LOCAL PDF EXTRACTION ==========
+
+def _extract_from_local_pdf(pdf_path: str, source_label: str) -> dict:
+    """Extract questions from a local PDF: text-first per page, Vision fallback for diagram pages.
+    Returns the same dict as _process_and_save_questions.
+    """
+    doc = fitz.open(pdf_path)
+    text_chunks: list[str] = []
+    vision_questions: list[dict] = []
+
+    for page_num in range(len(doc)):
+        page = doc[page_num]
+        text = page.get_text().strip()
+        if len(text) >= _TEXT_PAGE_MIN_CHARS:
+            text_chunks.append(f"[עמוד {page_num + 1}]\n{text}")
+        else:
+            # Low text → likely diagram → send to Gemini Vision
+            zoom = 200 / 72
+            pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom))
+            png_bytes = pix.tobytes("png")
+            result = _extract_questions_from_pdf_page(png_bytes, page_num + 1)
+            for q in result["questions"]:
+                q["image_url"] = result["image_url"]
+            vision_questions.extend(result["questions"])
+
+    doc.close()
+
+    text_questions: list[dict] = []
+    if text_chunks:
+        combined = "\n\n".join(text_chunks)
+        prompt = (
+            'חלץ את כל שאלות/תרגילי מכונות חשמל מהטקסט הבא.\n'
+            'לכל שאלה כתוב תיאור מלא וברור, כולל כל הנתונים המספריים.\n'
+            'החזר JSON בפורמט הזה בלבד (ללא ```):\n'
+            '{"questions": [{"text": "תיאור מלא של השאלה כולל נתונים", "topic": "נושא"}, ...]}\n\n'
+            + combined[:15000]
+        )
+        text_questions = _call_extract_questions(prompt)
+
+    all_questions = text_questions + vision_questions
+    return _process_and_save_questions(all_questions, source_label)
+
+
 # ========== MODELS ==========
 
 class ChatRequest(BaseModel):
@@ -492,6 +642,10 @@ class QuestionBody(BaseModel):
 
 class ExtractExamsRequest(BaseModel):
     exam_file: Optional[str] = None  # specific exam filename to extract from
+
+
+class ExtractLocalPdfRequest(BaseModel):
+    filename: str  # basename only — path traversal is rejected
 
 
 # ========== HELPERS ==========
@@ -936,6 +1090,47 @@ async def extract_questions_from_exams(body: ExtractExamsRequest = ExtractExamsR
         "method": method,
         "source": source_label,
     }
+
+
+# ========== LOCAL EXAM ENDPOINTS ==========
+
+@app.get("/api/local-exams")
+async def list_local_exams():
+    """List PDF files in local_exams/ with type (question vs reference)."""
+    if not os.path.isdir(_LOCAL_EXAMS_DIR):
+        return []
+    files = []
+    for fname in sorted(os.listdir(_LOCAL_EXAMS_DIR)):
+        if not fname.lower().endswith(".pdf"):
+            continue
+        full_path = os.path.join(_LOCAL_EXAMS_DIR, fname)
+        size_kb = os.path.getsize(full_path) // 1024
+        files.append({
+            "filename": fname,
+            "size_kb": size_kb,
+            "is_reference": _is_reference_file(fname),
+            "label": fname.rsplit(".", 1)[0],  # strip extension
+        })
+    return files
+
+
+@app.post("/api/questions/extract-local-pdf")
+async def extract_questions_from_local_pdf(body: ExtractLocalPdfRequest):
+    """Extract questions from a file in local_exams/ using text-first + Vision fallback."""
+    safe_name = os.path.basename(body.filename)  # prevent path traversal
+    if not safe_name.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="PDF files only")
+    if _is_reference_file(safe_name):
+        raise HTTPException(status_code=400, detail="קובץ זה מסומן כחומר עזר — לא מחלצים ממנו שאלות")
+
+    pdf_path = os.path.join(_LOCAL_EXAMS_DIR, safe_name)
+    if not os.path.isfile(pdf_path):
+        raise HTTPException(status_code=404, detail=f"File not found: {safe_name}")
+
+    source_label = safe_name.rsplit(".", 1)[0][:50]  # strip ext, cap length
+    print(f"[LOCAL-PDF] Extracting from: {safe_name}")
+    result = _extract_from_local_pdf(pdf_path, source_label)
+    return {**result, "source": source_label, "filename": safe_name}
 
 
 # Serve static files (HTML frontend) - must be last

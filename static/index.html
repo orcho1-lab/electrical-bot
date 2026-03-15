@@ -1047,6 +1047,17 @@
     #sidebar-search::placeholder { color: var(--text-muted); }
 
     /* ========== EXAM PICKER DIALOG ========== */
+    #local-exam-picker-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 9999;
+      display: none;
+      justify-content: center;
+      align-items: center;
+    }
+    #local-exam-picker-overlay.active { display: flex; }
     #exam-picker-overlay {
       display: none;
       position: fixed;
@@ -1380,6 +1391,31 @@
     .eb-delete-btn:hover { color: #ef4444; border-color: #ef4444; }
 
     /* Solution toggle */
+    /* Guide button — teal, sits alongside solve/show-solution */
+    .eb-guide-btn {
+      background: rgba(6,182,212,0.12);
+      border: 1px solid rgba(6,182,212,0.3);
+      color: #22d3ee;
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+    .eb-guide-btn:hover { background: rgba(6,182,212,0.22); }
+
+    /* Reference badge in local-exam picker */
+    .local-exam-ref-badge {
+      font-size: 10px;
+      background: rgba(245,158,11,0.15);
+      color: #fbbf24;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-right: 6px;
+    }
+
     .eb-solution-toggle {
       width: 100%;
       background: rgba(34,197,94,0.1);
@@ -1526,6 +1562,20 @@
 </div>
 <div id="toast-container"></div>
 
+<!-- Local Exam Picker Dialog -->
+<div id="local-exam-picker-overlay" onclick="if(event.target===this)closeLocalExamPicker()">
+  <div class="exam-picker">
+    <div class="exam-picker-header">
+      <h3>📂 ייבא מ-PDF מקומי</h3>
+      <button class="exam-picker-close" onclick="closeLocalExamPicker()">&times;</button>
+    </div>
+    <div class="exam-picker-body" id="local-exam-picker-list">
+      <div style="text-align:center;padding:30px;color:var(--text-muted)">טוען קבצים...</div>
+    </div>
+    <div class="exam-picker-footer">לחץ על קובץ כדי לחלץ ממנו שאלות · קבצי עזר מסומנים בצהוב</div>
+  </div>
+</div>
+
 <!-- Exam Picker Dialog -->
 <div id="exam-picker-overlay" onclick="if(event.target===this)closeExamPicker()">
   <div class="exam-picker">
@@ -1596,6 +1646,7 @@
           <input type="file" id="eb-upload-input" accept="image/*" style="display:none" onchange="ebUploadImage(event)" />
           <button id="eb-upload-btn-main" class="eb-upload-btn" onclick="document.getElementById('eb-upload-input').click()">📎 חלץ מתמונה</button>
           <button class="eb-upload-btn" onclick="openExamPicker()" style="background:rgba(37,99,235,0.15);color:#60a5fa;border:1px solid rgba(37,99,235,0.3)">📄 חלץ ממבחנים</button>
+          <button class="eb-upload-btn" onclick="openLocalExamPicker()" style="background:rgba(6,182,212,0.12);color:#22d3ee;border:1px solid rgba(6,182,212,0.3)">📂 ייבא מקומי</button>
           <button id="eb-batch-btn" class="eb-upload-btn" onclick="batchProcessQuestions()" style="background:rgba(34,197,94,0.12);color:#4ade80;border:1px solid rgba(34,197,94,0.3)">🧠 פתור הכל</button>
         </div>
       </div>
@@ -1643,6 +1694,14 @@
   let isLoading = false;
   let pendingImage = null;  // { base64: string, mimeType: string, dataUrl: string, name: string }
 
+  // ========== AUTH FETCH HELPER ==========
+  function apiFetch(url, options = {}) {
+    const token = localStorage.getItem('authToken');
+    const headers = { ...(options.headers || {}) };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    return fetch(url, { ...options, headers });
+  }
+
   // ========== INIT ==========
   document.addEventListener('DOMContentLoaded', () => {
     showWelcome();
@@ -1680,7 +1739,7 @@
       </div>`;
     }
     try {
-      const res = await fetch('/api/questions');
+      const res = await apiFetch('/api/questions');
       const questions = await res.json();
       window._lastQuestions = questions;
       renderExerciseBank(questions);
@@ -1876,6 +1935,7 @@
               ${q.image_url ? `<img class="eb-card-img" src="${q.image_url}" onclick="openLightbox('${q.image_url}')" alt="תמונת שאלה" />` : ''}
               <div class="eb-card-text">${escapeHtml(q.text)}</div>
               <div class="eb-card-actions">
+                <button class="eb-guide-btn" onclick="solveExercise('${encodeURIComponent(q.text)}', '${q.image_url || ''}', true)">🎯 פתור בהנחיה</button>
                 ${q.solution
                   ? `<button class="eb-solve-btn" style="background:rgba(34,197,94,0.15);border-color:rgba(34,197,94,0.3);color:#4ade80" onclick="toggleEbSolution(this.parentElement.nextElementSibling)">📖 הצג פתרון</button>`
                   : `<button class="eb-solve-btn" onclick="solveExercise('${encodeURIComponent(q.text)}', '${q.image_url || ''}')">⚡ פתור בצ'אט</button>`
@@ -1893,8 +1953,11 @@
     `).join('');
   }
 
-  async function solveExercise(encodedText, imageUrl) {
-    const text = decodeURIComponent(encodedText);
+  async function solveExercise(encodedText, imageUrl, guided = false) {
+    const rawText = decodeURIComponent(encodedText);
+    const text = guided
+      ? 'הנחה אותי לפתור את השאלה הבאה שלב אחר שלב. אל תיתן את הפתרון המלא בבת אחת — שאל שאלות מנחות ותחכה לתגובות שלי.\n\nשאלה:\n' + rawText
+      : rawText;
     switchTab('chat');
     newChat();
 
@@ -1933,7 +1996,7 @@
   }
 
   async function deleteExerciseAndRefresh(id) {
-    await fetch(`/api/questions/${id}`, { method: 'DELETE' });
+    await apiFetch(`/api/questions/${id}`, { method: 'DELETE' });
     loadExerciseBank();
     loadQBank();
   }
@@ -1946,7 +2009,7 @@
     // Step 1: Deduplicate
     btn.textContent = '🧹 מנקה כפילויות...';
     try {
-      const dedupRes = await fetch('/api/questions/deduplicate', { method: 'POST' });
+      const dedupRes = await apiFetch('/api/questions/deduplicate', { method: 'POST' });
       const dedupData = await dedupRes.json();
       if (dedupData.removed > 0) {
         showToast(`🧹 הוסרו ${dedupData.removed} כפילויות. נשארו ${dedupData.remaining} שאלות.`, 'success');
@@ -1959,7 +2022,7 @@
     // Step 2: Batch solve via SSE stream
     btn.textContent = '🧠 מתחיל לפתור...';
     try {
-      const response = await fetch('/api/questions/batch-solve', { method: 'POST' });
+      const response = await apiFetch('/api/questions/batch-solve', { method: 'POST' });
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
@@ -2071,7 +2134,7 @@
     };
 
     try {
-      const res = await fetch(`/api/questions/${_editQid}`, {
+      const res = await apiFetch(`/api/questions/${_editQid}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates)
@@ -2112,7 +2175,7 @@
     btn.textContent = '⏳ שומר...';
 
     try {
-      const res = await fetch('/api/questions/save-from-chat', {
+      const res = await apiFetch('/api/questions/save-from-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: userText, solution })
@@ -2150,7 +2213,7 @@
     const topicName = rule ? rule.keys[0] : topicLabel;
 
     try {
-      await fetch(`/api/questions/${_draggedQid}`, {
+      await apiFetch(`/api/questions/${_draggedQid}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ topic: topicName })
@@ -2181,7 +2244,7 @@
       const [header, base64] = dataUrl.split(',');
       const mimeType = header.match(/:(.*?);/)[1];
       try {
-        const res = await fetch('/api/questions/extract-image', {
+        const res = await apiFetch('/api/questions/extract-image', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message: file.name, image_data: base64, image_mime_type: mimeType })
@@ -2236,7 +2299,7 @@
       listEl.innerHTML = Array(4).fill('<div class="skeleton skeleton-conv"></div>').join('');
     }
     try {
-      const res = await fetch('/api/conversations');
+      const res = await apiFetch('/api/conversations');
       if (!res.ok) throw new Error('Network response was not ok');
       const convs = await res.json();
       if (!Array.isArray(convs)) throw new Error('Expected array');
@@ -2342,7 +2405,7 @@
     messagesEl.innerHTML = '';
 
     try {
-      const res = await fetch(`/api/conversations/${convId}/messages`);
+      const res = await apiFetch(`/api/conversations/${convId}/messages`);
       const msgs = await res.json();
 
       if (msgs.length === 0) {
@@ -2368,7 +2431,7 @@
     return;
     // Legacy code below not reached
     try {
-      await fetch(`/api/conversations/${convId}`, { method: 'DELETE' });
+      await apiFetch(`/api/conversations/${convId}`, { method: 'DELETE' });
 
       if (currentConvId === convId) {
         currentConvId = null;
@@ -2491,7 +2554,7 @@
         body.image_mime_type = imageToSend.mimeType;
       }
 
-      const res = await fetch('/api/chat/stream', {
+      const res = await apiFetch('/api/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
@@ -2732,7 +2795,7 @@
     const convId = pendingDeleteConvId;
     closeDeleteModal();
     try {
-      await fetch(`/api/conversations/${convId}`, { method: 'DELETE' });
+      await apiFetch(`/api/conversations/${convId}`, { method: 'DELETE' });
       if (currentConvId === convId) {
         currentConvId = null;
         showWelcome();
@@ -2812,7 +2875,7 @@
 
   async function loadQBank() {
     try {
-      const res = await fetch('/api/questions');
+      const res = await apiFetch('/api/questions');
       const questions = await res.json();
       renderQBank(questions);
     } catch (e) {
@@ -2891,7 +2954,7 @@
   }
 
   async function deleteQuestion(id) {
-    await fetch(`/api/questions/${id}`, { method: 'DELETE' });
+    await apiFetch(`/api/questions/${id}`, { method: 'DELETE' });
     loadQBank();
   }
 
@@ -2917,7 +2980,7 @@
     const listEl = document.getElementById('exam-picker-list');
     listEl.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted)">טוען מבחנים...</div>';
     try {
-      const res = await fetch('/api/exams');
+      const res = await apiFetch('/api/exams');
       const exams = await res.json();
       if (!exams.length) {
         listEl.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted)">לא נמצאו קבצי מבחנים</div>';
@@ -2958,7 +3021,7 @@
     }
 
     try {
-      const res = await fetch('/api/questions/extract-exams', {
+      const res = await apiFetch('/api/questions/extract-exams', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ exam_file: filename })
@@ -2993,6 +3056,77 @@
     }
   }
 
+  // ========== LOCAL EXAM PICKER ==========
+  function openLocalExamPicker() {
+    document.getElementById('local-exam-picker-overlay').classList.add('active');
+    loadLocalExamList();
+  }
+  function closeLocalExamPicker() {
+    document.getElementById('local-exam-picker-overlay').classList.remove('active');
+  }
+
+  async function loadLocalExamList() {
+    const listEl = document.getElementById('local-exam-picker-list');
+    listEl.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted)">טוען קבצים...</div>';
+    try {
+      const res = await apiFetch('/api/local-exams');
+      const files = await res.json();
+      if (!files.length) {
+        listEl.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted)">לא נמצאו קבצים ב-local_exams/</div>';
+        return;
+      }
+      listEl.innerHTML = files.map(f => {
+        const isRef = f.is_reference;
+        const icon = isRef ? '📚' : '📄';
+        const refBadge = isRef ? '<span class="local-exam-ref-badge">חומר עזר</span>' : '';
+        const sizeStr = f.size_kb > 1024 ? (f.size_kb/1024).toFixed(1)+'MB' : f.size_kb+'KB';
+        const clickHandler = isRef
+          ? `onclick="showToast('קובץ זה מסומן כחומר עזר — לא מחלצים ממנו שאלות','info')"`
+          : `onclick="pickLocalExam('${f.filename.replace(/'/g,'\\\'').replace(/"/g,'&quot;')}', this)"`;
+        return `<div class="exam-item" ${clickHandler} style="${isRef ? 'opacity:0.65;cursor:default' : ''}">
+          <span class="exam-icon">${icon}</span>
+          <span class="exam-label">${escapeHtml(f.label)} ${refBadge}</span>
+          <span style="font-size:11px;color:var(--text-muted);margin-right:auto">${sizeStr}</span>
+        </div>`;
+      }).join('');
+    } catch (e) {
+      listEl.innerHTML = `<div style="text-align:center;padding:30px;color:#ef4444">שגיאה: ${e.message}</div>`;
+    }
+  }
+
+  async function pickLocalExam(filename, itemEl) {
+    const allItems = document.querySelectorAll('#local-exam-picker-list .exam-item');
+    allItems.forEach(el => { el.style.pointerEvents = 'none'; el.style.opacity = '0.5'; });
+    if (itemEl) {
+      itemEl.style.opacity = '1';
+      itemEl.innerHTML = `<span class="exam-icon">⏳</span><span class="exam-label">מחלץ, מתייג ופותר שאלות... (עד 5 דקות)</span>`;
+    }
+    try {
+      const res = await apiFetch('/api/questions/extract-local-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename })
+      });
+      const data = await res.json();
+      if (!res.ok) { showToast('שגיאה: ' + (data.detail || res.status), 'error'); return; }
+      const { saved = 0, duplicates = 0, solved = 0, extracted = 0 } = data;
+      loadExerciseBank();
+      closeLocalExamPicker();
+      if (saved > 0) {
+        showToast(`✅ חילוץ הושלם! ${saved} שאלות נשמרו, ${solved} נפתרו.${duplicates ? ` (${duplicates} כפילויות דולגו)` : ''}`, 'success');
+      } else if (duplicates > 0) {
+        showToast(`כל ${duplicates} השאלות כבר קיימות במאגר.`, 'info');
+      } else {
+        showToast(extracted === 0 ? 'לא נמצאו שאלות בקובץ.' : 'לא נמצאו שאלות חדשות.', 'info');
+      }
+    } catch (e) {
+      showToast('שגיאה: ' + e.message, 'error');
+    } finally {
+      allItems.forEach(el => { el.style.pointerEvents = ''; el.style.opacity = ''; });
+      loadLocalExamList();
+    }
+  }
+
   async function extractFromImageFile(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -3002,7 +3136,7 @@
       const [header, base64] = dataUrl.split(',');
       const mimeType = header.match(/:(.*?);/)[1];
       try {
-        const res = await fetch('/api/questions/extract-image', {
+        const res = await apiFetch('/api/questions/extract-image', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message: '', image_data: base64, image_mime_type: mimeType })
@@ -3050,7 +3184,7 @@
   async function saveSelectedQuestions(source) {
     const checkboxes = document.querySelectorAll('.extracted-item input[type=checkbox]:checked');
     await Promise.all(Array.from(checkboxes).map(cb =>
-      fetch('/api/questions', {
+      apiFetch('/api/questions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
