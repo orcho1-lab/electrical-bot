@@ -9,11 +9,15 @@ import time
 import uuid as _uuid
 from typing import Optional
 
+import hashlib
+import jwt as _jwt
+
 import fitz  # PyMuPDF — PDF → image conversion
 
 import google.generativeai as genai
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request
+import tempfile
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -30,13 +34,27 @@ db = Database()
 # ========== SECURITY: AUTH + RATE LIMITING ==========
 
 SITE_PASSWORD = os.environ.get("SITE_PASSWORD", "mahat2025")
-_active_tokens: set = set()
+_JWT_SECRET = os.environ.get("JWT_SECRET", SITE_PASSWORD + "_jwt_secret")
+_JWT_ALGO = "HS256"
 
-# Rate limiting: token → deque of timestamps
+# Rate limiting: token subject → deque of timestamps
 _rate_limits: dict = {}
 _RATE_CHAT = 30       # max chat requests per minute
 _RATE_UPLOAD = 5      # max uploads per minute
 _RATE_WINDOW = 60     # seconds
+
+
+def _make_jwt(user_id: str) -> str:
+    payload = {"sub": user_id, "iat": int(time.time())}
+    return _jwt.encode(payload, _JWT_SECRET, algorithm=_JWT_ALGO)
+
+
+def _verify_jwt(token: str) -> bool:
+    try:
+        _jwt.decode(token, _JWT_SECRET, algorithms=[_JWT_ALGO])
+        return True
+    except _jwt.PyJWTError:
+        return False
 
 
 def _check_rate_limit(token: str, category: str = "chat") -> bool:
@@ -55,6 +73,16 @@ def _check_rate_limit(token: str, category: str = "chat") -> bool:
     dq.append(now)
     return True
 
+def _get_user_id(request: Request) -> str:
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header.split(" ", 1)[1]
+        try:
+            payload = _jwt.decode(token, _JWT_SECRET, algorithms=[_JWT_ALGO])
+            return payload.get("sub")
+        except:
+            pass
+    return None
 
 # CORS
 app.add_middleware(
@@ -85,7 +113,7 @@ async def auth_middleware(request: Request, call_next):
         return JSONResponse(status_code=401, content={"detail": "לא מחובר — נא להתחבר"})
 
     token = auth_header.split(" ", 1)[1]
-    if token not in _active_tokens:
+    if not _verify_jwt(token):
         return JSONResponse(status_code=401, content={"detail": "הסשן פג — נא להתחבר מחדש"})
 
     # Rate limit check for chat/upload endpoints
@@ -102,25 +130,31 @@ async def auth_middleware(request: Request, call_next):
     return response
 
 
-class LoginRequest(BaseModel):
-    password: str
+def _hash_password(password: str) -> str:
+    return hashlib.sha256((password + "mahat2025_salt").encode()).hexdigest()
 
+class LoginRequest(BaseModel):
+    email: str
+    password: str
 
 @app.post("/api/auth/login")
 async def login(request: LoginRequest):
-    if request.password != SITE_PASSWORD:
-        raise HTTPException(status_code=403, detail="סיסמה שגויה")
-    token = _uuid.uuid4().hex
-    _active_tokens.add(token)
-    return {"token": token}
+    user = db.get_user_by_email(request.email)
+    pw_hash = _hash_password(request.password)
+    
+    if not user:
+        # Auto-signup behavior
+        user_id = db.create_user(request.email, pw_hash)
+    else:
+        if user["password_hash"] != pw_hash:
+            raise HTTPException(status_code=403, detail="סיסמה שגויה")
+        user_id = user["id"]
+        
+    return {"token": _make_jwt(user_id)}
 
 
 @app.post("/api/auth/logout")
-async def logout(request: Request):
-    auth_header = request.headers.get("Authorization", "")
-    if auth_header.startswith("Bearer "):
-        token = auth_header.split(" ", 1)[1]
-        _active_tokens.discard(token)
+async def logout():
     return {"status": "ok"}
 
 api_key = os.environ.get("GEMINI_API_KEY")
@@ -130,7 +164,7 @@ if not api_key:
 genai.configure(api_key=api_key)
 
 MODEL_NAME = "gemini-3.1-pro-preview"
-SUMMARY_MODEL_NAME = "gemini-2.0-flash"
+SUMMARY_MODEL_NAME = "gemini-3.1-flash-lite-preview"
 
 # Load official מהט solutions if available
 _BASE_DIR = os.path.dirname(__file__) or "."
@@ -178,6 +212,13 @@ if _solutions_text:
 if _theory_text:
     FULL_SYSTEM_PROMPT += "\n\n" + _theory_text
 
+FULL_SYSTEM_PROMPT += "\n\n" + "=" * 60 + "\n"
+FULL_SYSTEM_PROMPT += "[חובה!!!] חותמת אימות (SymPy Math Validation):\n"
+FULL_SYSTEM_PROMPT += "כחלק מהיותך פלטפורמה לימודית מהימנה (100% דיוק במתמטיקה), ניתנה לך גישה למנוע Python חכם (כלי ה-Code Execution).\n"
+FULL_SYSTEM_PROMPT += "בכל פעם שאתה עומד לבצע חישוב של תרגיל הנדסי (כגון חוקי קירכהוף, זרמים כפל מטריצות, מעגל תמורה וכו') עליך **תמיד** לכתוב ולהריץ קוד Python (תוכל להשתמש ב-SymPy או Math) שמחשב את התוצאה הסופית, **לפני** שאתה מציג אותה לסטודנט.\n"
+FULL_SYSTEM_PROMPT += "אם הפלט של פייתון (הרץ ברקע) שונה ממה שחשבת — סמוך **אך ורק על פייתון** והצג את תשובת הקוד. לעולם אל תחליט שאתה צודק יותר ממחשבון SymPy.\n"
+FULL_SYSTEM_PROMPT += "=" * 60 + "\n\n"
+
 _total_tokens = len(FULL_SYSTEM_PROMPT) // 4
 print(f"[INIT] Total system prompt: {len(FULL_SYSTEM_PROMPT):,} chars (~{_total_tokens:,} tokens, {_total_tokens/10000:.1f}% of 1M context)")
 
@@ -203,6 +244,7 @@ model = genai.GenerativeModel(
     model_name=MODEL_NAME,
     system_instruction=FULL_SYSTEM_PROMPT,
     generation_config=_chat_gen_config,
+    tools='code_execution',
 )
 summary_model = genai.GenerativeModel(
     model_name=SUMMARY_MODEL_NAME,
@@ -214,6 +256,7 @@ batch_solve_model = genai.GenerativeModel(
     model_name=SUMMARY_MODEL_NAME,
     system_instruction=FULL_SYSTEM_PROMPT,
     generation_config=_batch_solve_config,
+    tools='code_execution',
 )
 
 CORRECTION_TRIGGER = "הנה הפתרון הנכון"
@@ -386,8 +429,14 @@ def _find_pdf_for_exam(exam_txt_filename: str) -> Optional[str]:
 # ========== AUTO-SOLVE & CLASSIFY ==========
 
 _VALID_TOPICS = [
+    # מכונות חשמל
     "שנאים", "מנוע אסינכרוני", "גנרטור סינכרוני", "מנוע סינכרוני",
-    "מנוע DC", "גנרטור DC", "הנעה חשמלית", "כללי",
+    "מנוע DC", "גנרטור DC", "הנעה חשמלית",
+    # מערכות הספק
+    "רשת חלוקה", "שיפור מקדם הספק", "תאורה", "העמסת שנאים", "נקודת האפס",
+    # מתקני חשמל
+    "הגנה מפני חשמול", "כבלים והגנה", "הארקות",
+    "כללי",
 ]
 
 
@@ -699,8 +748,9 @@ def _user_text(request: ChatRequest) -> str:
 # ========== CHAT ENDPOINTS ==========
 
 @app.post("/api/chat")
-async def chat(request: ChatRequest):
-    conversation_id = request.conversation_id or db.create_conversation()
+async def chat(request: ChatRequest, req: Request):
+    user_id = _get_user_id(req)
+    conversation_id = request.conversation_id or db.create_conversation("שיחה חדשה", user_id)
     history_rows = db.get_messages(conversation_id)
 
     gemini_history = _build_gemini_history(history_rows)
@@ -731,8 +781,9 @@ async def chat(request: ChatRequest):
 
 
 @app.post("/api/chat/stream")
-async def chat_stream(request: ChatRequest):
-    conversation_id = request.conversation_id or db.create_conversation()
+async def chat_stream(request: ChatRequest, req: Request):
+    user_id = _get_user_id(req)
+    conversation_id = request.conversation_id or db.create_conversation("שיחה חדשה", user_id)
     history_rows = db.get_messages(conversation_id)
 
     gemini_history = _build_gemini_history(history_rows)
@@ -800,8 +851,8 @@ async def chat_stream(request: ChatRequest):
 # ========== CONVERSATION ENDPOINTS ==========
 
 @app.get("/api/conversations")
-async def get_conversations(search: str = ""):
-    return db.get_conversations(search=search)
+async def get_conversations(req: Request, search: str = ""):
+    return db.get_conversations(search=search, user_id=_get_user_id(req))
 
 
 @app.get("/api/conversations/{conversation_id}/messages")
@@ -810,7 +861,8 @@ async def get_messages(conversation_id: str):
 
 
 @app.delete("/api/conversations/{conversation_id}")
-async def delete_conversation(conversation_id: str):
+async def delete_conversation(req: Request, conversation_id: str):
+    user_id = _get_user_id(req)
     messages = db.get_messages(conversation_id)
     if messages:
         conv_text = "\n".join(
@@ -818,7 +870,7 @@ async def delete_conversation(conversation_id: str):
             for m in messages[-20:]
         )
         threading.Thread(target=extract_and_save_from_conversation, args=(conv_text,), daemon=True).start()
-    db.delete_conversation(conversation_id)
+    db.delete_conversation(conversation_id, user_id=user_id)
     return {"status": "deleted"}
 
 
@@ -978,9 +1030,10 @@ async def extract_questions_from_image(request: ChatRequest):
     parts = [
         {"mime_type": mime, "data": img_bytes},
         (
-            'חלץ את כל שאלות/תרגילי מכונות חשמל מהתמונה.\n'
+            'חלץ את כל שאלות/תרגילים מעמוד זה (מכונות חשמל / מערכות הספק / מתקני חשמל).\n'
             'לכל שאלה כתוב תיאור מלא וברור, כולל כל הנתונים המספריים.\n'
-            'אם יש סרטוט מעגל — תאר אותו בקצרה (רכיבים, חיבורים, ערכים).\n'
+            'אם יש סרטוט מעגל או איור — תאר אותו בקצרה (רכיבים, חיבורים, ערכים).\n'
+            'אם העמוד הוא כותרת/הוראות/נוסחאון — החזר רשימה ריקה.\n'
             'החזר JSON בפורמט הזה בלבד (ללא ```):\n'
             '{"questions": [{"text": "תיאור מלא של השאלה כולל נתונים", "topic": "נושא"}, ...]}\n'
             'אם אין שאלות: {"questions": []}'
@@ -1151,6 +1204,35 @@ async def extract_questions_from_local_pdf(body: ExtractLocalPdfRequest):
     print(f"[LOCAL-PDF] Extracting from: {safe_name}")
     result = _extract_from_local_pdf(pdf_path, source_label)
     return {**result, "source": source_label, "filename": safe_name}
+
+
+@app.post("/api/questions/upload-pdf")
+async def upload_and_extract_pdf(file: UploadFile = File(...)):
+    """Accept a PDF uploaded from the browser, extract questions, save to DB."""
+    fname = os.path.basename(file.filename or "upload.pdf")
+    if not fname.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="PDF בלבד")
+    if _is_reference_file(fname):
+        raise HTTPException(status_code=400, detail="קובץ עזר — לא מחלצים שאלות")
+
+    content = await file.read()
+    if len(content) > 20 * 1024 * 1024:  # 20 MB limit
+        raise HTTPException(status_code=413, detail="הקובץ גדול מדי (מקסימום 20MB)")
+
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+        tmp.write(content)
+        tmp_path = tmp.name
+
+    try:
+        source_label = fname.rsplit(".", 1)[0][:50]
+        print(f"[UPLOAD-PDF] Extracting from uploaded: {fname} ({len(content)//1024}KB)")
+        result = _extract_from_local_pdf(tmp_path, source_label)
+        return {**result, "source": source_label, "filename": fname}
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
 
 
 # Serve static files (HTML frontend) - must be last

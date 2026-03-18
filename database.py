@@ -107,9 +107,18 @@ class Database:
         pk_auto = "SERIAL PRIMARY KEY" if _USE_PG else "INTEGER PRIMARY KEY AUTOINCREMENT"
         with self._conn() as conn:
             _exec(conn, f"""
+                CREATE TABLE IF NOT EXISTS users (
+                    id TEXT PRIMARY KEY,
+                    email TEXT UNIQUE NOT NULL,
+                    password_hash TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            _exec(conn, f"""
                 CREATE TABLE IF NOT EXISTS conversations (
                     id TEXT PRIMARY KEY,
                     title TEXT,
+                    user_id TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
@@ -145,8 +154,14 @@ class Database:
                 )
             """)
 
-            # SQLite-only: add columns missing from older DB versions
-            if not _USE_PG:
+            # Add columns missing from older DB versions
+            if _USE_PG:
+                try: _exec(conn, "ALTER TABLE conversations ADD COLUMN user_id TEXT")
+                except Exception: pass
+            else:
+                try: conn.execute("ALTER TABLE conversations ADD COLUMN user_id TEXT")
+                except Exception: pass
+
                 for col, typedef in [
                     ("solution", "TEXT DEFAULT ''"),
                     ("image_url", "TEXT DEFAULT ''"),
@@ -171,32 +186,48 @@ class Database:
 
     # ── Conversations ────────────────────────────────────────────────────────
 
-    def create_conversation(self, title: str = "שיחה חדשה") -> str:
+    # ── Users ────────────────────────────────────────────────────────────────
+
+    def get_user_by_email(self, email: str) -> dict:
+        with self._conn() as conn:
+            cur = _exec(conn, "SELECT * FROM users WHERE email=?", (email,))
+            rows = _rows(cur)
+            return rows[0] if rows else None
+
+    def create_user(self, email: str, password_hash: str) -> str:
+        user_id = str(uuid.uuid4())
+        with self._conn() as conn:
+            _exec(conn, "INSERT INTO users (id, email, password_hash) VALUES (?, ?, ?)", (user_id, email, password_hash))
+        return user_id
+
+    # ── Conversations ────────────────────────────────────────────────────────
+
+    def create_conversation(self, title: str = "שיחה חדשה", user_id: str = None) -> str:
         conv_id = str(uuid.uuid4())
         with self._conn() as conn:
-            _exec(conn, "INSERT INTO conversations (id, title) VALUES (?, ?)", (conv_id, title))
+            _exec(conn, "INSERT INTO conversations (id, title, user_id) VALUES (?, ?, ?)", (conv_id, title, user_id))
         return conv_id
 
-    def update_conversation_title(self, conv_id: str, title: str):
+    def update_conversation_title(self, conv_id: str, title: str, user_id: str = None):
         with self._conn() as conn:
             _exec(conn,
-                  "UPDATE conversations SET title=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                  (title, conv_id))
+                  "UPDATE conversations SET title=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND (user_id=? OR user_id IS NULL)",
+                  (title, conv_id, user_id))
 
-    def get_conversations(self, search: str = "") -> list[dict]:
+    def get_conversations(self, search: str = "", user_id: str = None) -> list[dict]:
         with self._conn() as conn:
             if search:
                 cur = _exec(conn,
-                            "SELECT * FROM conversations WHERE title LIKE ? ORDER BY updated_at DESC",
-                            (f"%{search}%",))
+                            "SELECT * FROM conversations WHERE title LIKE ? AND (user_id=? OR user_id IS NULL) ORDER BY updated_at DESC",
+                            (f"%{search}%", user_id))
             else:
-                cur = _exec(conn, "SELECT * FROM conversations ORDER BY updated_at DESC")
+                cur = _exec(conn, "SELECT * FROM conversations WHERE (user_id=? OR user_id IS NULL) ORDER BY updated_at DESC", (user_id,))
             return _rows(cur)
 
-    def delete_conversation(self, conv_id: str):
+    def delete_conversation(self, conv_id: str, user_id: str = None):
         with self._conn() as conn:
-            _exec(conn, "DELETE FROM messages WHERE conversation_id=?", (conv_id,))
-            _exec(conn, "DELETE FROM conversations WHERE id=?", (conv_id,))
+            _exec(conn, "DELETE FROM messages WHERE conversation_id IN (SELECT id FROM conversations WHERE id=? AND (user_id=? OR user_id IS NULL))", (conv_id, user_id))
+            _exec(conn, "DELETE FROM conversations WHERE id=? AND (user_id=? OR user_id IS NULL)", (conv_id, user_id))
 
     # ── Messages ─────────────────────────────────────────────────────────────
 
