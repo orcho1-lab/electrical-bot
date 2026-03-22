@@ -167,6 +167,7 @@ class Database:
                     ("image_url", "TEXT DEFAULT ''"),
                     ("difficulty", "INTEGER DEFAULT 0"),
                     ("sort_order", "INTEGER DEFAULT 0"),
+                    ("embedding", "TEXT DEFAULT ''"),
                 ]:
                     try:
                         conn.execute(f"ALTER TABLE questions ADD COLUMN {col} {typedef}")
@@ -199,6 +200,10 @@ class Database:
         with self._conn() as conn:
             _exec(conn, "INSERT INTO users (id, email, password_hash) VALUES (?, ?, ?)", (user_id, email, password_hash))
         return user_id
+
+    def update_user_password(self, user_id: str, password_hash: str):
+        with self._conn() as conn:
+            _exec(conn, "UPDATE users SET password_hash=? WHERE id=?", (password_hash, user_id))
 
     # ── Conversations ────────────────────────────────────────────────────────
 
@@ -254,11 +259,15 @@ class Database:
         with self._conn() as conn:
             _exec(conn, "INSERT INTO learnings (summary) VALUES (?)", (summary,))
 
-    def get_learnings(self) -> list[str]:
+    def get_learnings(self) -> list[dict]:
         with self._conn() as conn:
             cur = _exec(conn,
-                        "SELECT summary FROM learnings ORDER BY created_at DESC LIMIT 20")
-            return [r["summary"] for r in _rows(cur)]
+                        "SELECT id, summary FROM learnings ORDER BY created_at DESC LIMIT 20")
+            return _rows(cur)
+            
+    def delete_learning(self, learning_id: int):
+        with self._conn() as conn:
+            _exec(conn, "DELETE FROM learnings WHERE id=?", (learning_id,))
 
     # ── Questions ─────────────────────────────────────────────────────────────
 
@@ -282,12 +291,12 @@ class Database:
         return False
 
     def save_question(self, text: str, topic: str = "", source: str = "",
-                      solution: str = "", image_url: str = "") -> int:
+                      solution: str = "", image_url: str = "", embedding: str = "") -> int:
         with self._conn() as conn:
             return _insert_returning_id(
                 conn,
-                "INSERT INTO questions (text, topic, source, solution, image_url) VALUES (?, ?, ?, ?, ?)",
-                (text, topic, source, solution, image_url),
+                "INSERT INTO questions (text, topic, source, solution, image_url, embedding) VALUES (?, ?, ?, ?, ?, ?)",
+                (text, topic, source, solution, image_url, embedding),
             )
 
     def get_questions(self) -> list[dict]:
@@ -313,7 +322,7 @@ class Database:
     def get_solved_questions(self) -> list[dict]:
         with self._conn() as conn:
             cur = _exec(conn,
-                        "SELECT id, text, topic, solution FROM questions "
+                        "SELECT id, text, topic, solution, embedding FROM questions "
                         "WHERE solution IS NOT NULL AND solution != '' ORDER BY id")
             return _rows(cur)
 
@@ -323,32 +332,46 @@ class Database:
 
     def deduplicate_questions(self) -> int:
         with self._conn() as conn:
-            cur = _exec(conn, "SELECT id, text FROM questions ORDER BY id ASC")
+            cur = _exec(conn, "SELECT id, text, embedding FROM questions ORDER BY id ASC")
             rows = _rows(cur)
 
-        seen: dict[str, int] = {}
-        to_delete: list[int] = []
+        seen = []
+        to_delete = []
+        
+        import json, math
+        def cosine_sim(v1, v2):
+            if not v1 or not v2: return 0.0
+            norm1 = sum(a*a for a in v1)
+            norm2 = sum(b*b for b in v2)
+            if norm1 == 0 or norm2 == 0: return 0.0
+            return sum(a*b for a, b in zip(v1, v2)) / math.sqrt(norm1 * norm2)
 
         for row in rows:
             norm = _normalize_text(row["text"])
             if not norm:
                 continue
-            if norm in seen:
-                to_delete.append(row["id"])
-                continue
+                
+            emb = None
+            if row.get("embedding"):
+                try: emb = json.loads(row["embedding"])
+                except: pass
+
             is_dup = False
-            for existing_norm in seen:
-                if len(norm) > 20 and len(existing_norm) > 20:
-                    shorter, longer = (
-                        (norm, existing_norm) if len(norm) <= len(existing_norm)
-                        else (existing_norm, norm)
-                    )
-                    if shorter in longer:
-                        to_delete.append(row["id"])
+            for seen_id, seen_norm, seen_emb in seen:
+                if emb and seen_emb:
+                    if cosine_sim(emb, seen_emb) > 0.96:
                         is_dup = True
                         break
-            if not is_dup:
-                seen[norm] = row["id"]
+                else:
+                    if len(norm) > 20 and len(seen_norm) > 20:
+                        shorter, longer = (norm, seen_norm) if len(norm) <= len(seen_norm) else (seen_norm, norm)
+                        if shorter in longer:
+                            is_dup = True
+                            break
+            if is_dup:
+                to_delete.append(row["id"])
+            else:
+                seen.append((row["id"], norm, emb))
 
         if to_delete:
             ph = "%s" if _USE_PG else "?"

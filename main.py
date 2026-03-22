@@ -9,12 +9,14 @@ import time
 import uuid as _uuid
 from typing import Optional
 
-import hashlib
+import bcrypt as _bcrypt
 import jwt as _jwt
 
 import fitz  # PyMuPDF — PDF → image conversion
 
 import google.generativeai as genai
+from google.generativeai import caching
+from datetime import timedelta
 from dotenv import load_dotenv
 import tempfile
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
@@ -44,8 +46,11 @@ _RATE_UPLOAD = 5      # max uploads per minute
 _RATE_WINDOW = 60     # seconds
 
 
+_JWT_EXPIRY_SECONDS = 24 * 60 * 60  # 24 hours
+
 def _make_jwt(user_id: str) -> str:
-    payload = {"sub": user_id, "iat": int(time.time())}
+    now = int(time.time())
+    payload = {"sub": user_id, "iat": now, "exp": now + _JWT_EXPIRY_SECONDS}
     return _jwt.encode(payload, _JWT_SECRET, algorithm=_JWT_ALGO)
 
 
@@ -131,25 +136,42 @@ async def auth_middleware(request: Request, call_next):
 
 
 def _hash_password(password: str) -> str:
-    return hashlib.sha256((password + "mahat2025_salt").encode()).hexdigest()
+    """Hash password with bcrypt. Returns string starting with $2b$."""
+    return _bcrypt.hashpw(password.encode(), _bcrypt.gensalt()).decode()
+
+
+def _verify_password(password: str, stored_hash: str) -> bool:
+    """Verify password against stored hash. Supports bcrypt and legacy SHA-256."""
+    if stored_hash.startswith("$2b$") or stored_hash.startswith("$2a$"):
+        return _bcrypt.checkpw(password.encode(), stored_hash.encode())
+    # Legacy SHA-256 fallback
+    import hashlib
+    legacy = hashlib.sha256((password + "mahat2025_salt").encode()).hexdigest()
+    return legacy == stored_hash
 
 class LoginRequest(BaseModel):
     email: str
     password: str
+    code: Optional[str] = None
+
+_REG_CODE = os.environ.get("REGISTRATION_CODE", "mahat2025_reg")
 
 @app.post("/api/auth/login")
 async def login(request: LoginRequest):
     user = db.get_user_by_email(request.email)
-    pw_hash = _hash_password(request.password)
-    
+
     if not user:
-        # Auto-signup behavior
-        user_id = db.create_user(request.email, pw_hash)
+        if request.code != _REG_CODE:
+            raise HTTPException(status_code=403, detail="משתמש לא קיים. להרשמה יש להזין קוד הרשמה תקין")
+        user_id = db.create_user(request.email, _hash_password(request.password))
     else:
-        if user["password_hash"] != pw_hash:
+        if not _verify_password(request.password, user["password_hash"]):
             raise HTTPException(status_code=403, detail="סיסמה שגויה")
         user_id = user["id"]
-        
+        # Migrate legacy SHA-256 hash to bcrypt on successful login
+        if not (user["password_hash"].startswith("$2b$") or user["password_hash"].startswith("$2a$")):
+            db.update_user_password(user_id, _hash_password(request.password))
+
     return {"token": _make_jwt(user_id)}
 
 
@@ -240,24 +262,55 @@ _extract_gen_config = genai.GenerationConfig(
     max_output_tokens=4096,
 )
 
-model = genai.GenerativeModel(
-    model_name=MODEL_NAME,
-    system_instruction=FULL_SYSTEM_PROMPT,
-    generation_config=_chat_gen_config,
-    tools='code_execution',
-)
+def _init_cache(m_name: str, sys_prompt: str, tools=None):
+    try:
+        print(f"[INIT] Creating cached content for {m_name}...")
+        cache = caching.CachedContent.create(
+            model=f"models/{m_name}",
+            system_instruction=sys_prompt,
+            tools=tools,
+            ttl=timedelta(hours=24)
+        )
+        print(f"[INIT] Cache created successfully: {cache.name}")
+        return cache
+    except Exception as e:
+        print(f"[WARN] Failed to create cache for {m_name}: {e}")
+        return None
+
+_pro_cache = _init_cache(MODEL_NAME, FULL_SYSTEM_PROMPT, tools='code_execution')
+if _pro_cache:
+    model = genai.GenerativeModel.from_cached_content(
+        cached_content=_pro_cache,
+        generation_config=_chat_gen_config
+    )
+else:
+    model = genai.GenerativeModel(
+        model_name=MODEL_NAME,
+        system_instruction=FULL_SYSTEM_PROMPT,
+        generation_config=_chat_gen_config,
+        tools='code_execution',
+    )
+
 summary_model = genai.GenerativeModel(
     model_name=SUMMARY_MODEL_NAME,
     generation_config=_extract_gen_config,
 )
 # Dedicated model for batch-solving: uses Flash (fast + high rate limit) with full formula sheet
 _batch_solve_config = genai.GenerationConfig(temperature=0.3, max_output_tokens=8192)
-batch_solve_model = genai.GenerativeModel(
-    model_name=SUMMARY_MODEL_NAME,
-    system_instruction=FULL_SYSTEM_PROMPT,
-    generation_config=_batch_solve_config,
-    tools='code_execution',
-)
+
+_flash_cache = _init_cache(SUMMARY_MODEL_NAME, FULL_SYSTEM_PROMPT, tools='code_execution')
+if _flash_cache:
+    batch_solve_model = genai.GenerativeModel.from_cached_content(
+        cached_content=_flash_cache,
+        generation_config=_batch_solve_config
+    )
+else:
+    batch_solve_model = genai.GenerativeModel(
+        model_name=SUMMARY_MODEL_NAME,
+        system_instruction=FULL_SYSTEM_PROMPT,
+        generation_config=_batch_solve_config,
+        tools='code_execution',
+    )
 
 CORRECTION_TRIGGER = "הנה הפתרון הנכון"
 
@@ -356,13 +409,18 @@ def extract_and_save_from_conversation(conv_text: str):
 
 
 def _call_extract_questions(prompt: str) -> list:
-    resp = summary_model.generate_content(prompt)
-    raw = resp.text.strip()
-    match = re.search(r'\{.*\}', raw, re.DOTALL)
-    if match:
-        data = json.loads(match.group())
+    config = genai.GenerationConfig(
+        temperature=0.1,
+        max_output_tokens=4096,
+        response_mime_type="application/json"
+    )
+    try:
+        resp = summary_model.generate_content(prompt, generation_config=config)
+        data = json.loads(resp.text)
         return data.get("questions", [])
-    return []
+    except Exception as e:
+        print(f"[EXTRACT] Text extraction error: {e}")
+        return []
 
 
 # ========== PDF → IMAGE EXTRACTION ==========
@@ -405,11 +463,16 @@ def _extract_questions_from_pdf_page(png_bytes: bytes, page_num: int) -> dict:
         )
     ]
     try:
-        resp = summary_model.generate_content(parts)
-        raw = resp.text.strip()
-        match = re.search(r'\{.*\}', raw, re.DOTALL)
-        questions = json.loads(match.group()).get("questions", []) if match else []
-    except Exception:
+        config = genai.GenerationConfig(
+            temperature=0.1,
+            max_output_tokens=4096,
+            response_mime_type="application/json"
+        )
+        resp = summary_model.generate_content(parts, generation_config=config)
+        data = json.loads(resp.text)
+        questions = data.get("questions", [])
+    except Exception as e:
+        print(f"[EXTRACT] Image vision error: {e}")
         questions = []
 
     return {"questions": questions, "image_url": image_url, "page": page_num}
@@ -527,7 +590,23 @@ def _solve_question(text: str, image_url: str = "", use_batch_model: bool = Fals
     for attempt in range(3):
         try:
             resp = target_model.generate_content(parts)
-            return resp.text.strip()
+            draft_text = resp.text.strip()
+            
+            # Math Reflection for Batch Solving
+            verifier_prompt = (
+                "הנך סוכן ביקורת הנדסית. קרא את הפתרון המוצע להלן שנוצר על ידי AI אחר וחפש טעויות מטריצה, זוויות, שימוש שגוי בנוסחה, חוק קירכהוף הפוך או רדיאנים.\n"
+                f"שאלה: {text}\nפתרון מוצע: {draft_text}\n"
+                "אם הכל תקין ענה רק במילה 'מאושר'. אם מצאת וזיהית טעות בחישוב, ענה עם הפתרון המתוקן במלואו כשהוא צודק עקבית מההתחלה ועד סופו, ללא התנצלויות."
+            )
+            v_resp = target_model.generate_content(verifier_prompt)
+            v_text = v_resp.text.strip()
+            
+            if "מאושר" in v_text[:20] and len(v_text) < 100:
+                print("[SOLVE] First-pass verified perfectly by validation agent!")
+                return draft_text
+            else:
+                print("[SOLVE] Re-written and corrected by validation agent.")
+                return v_text
         except Exception as e:
             err_str = str(e)
             if "429" in err_str or "quota" in err_str.lower():
@@ -557,11 +636,17 @@ def _tokenize_heb(text: str) -> set:
     return {w for w in words if w not in _HEB_STOP and len(w) > 2}
 
 
+def _get_embedding(text: str, task_type: str = "retrieval_document") -> list[float]:
+    if len(text) < 5: return []
+    try:
+        res = genai.embed_content(model='models/gemini-embedding-2-preview', content=text, task_type=task_type)
+        return res.get('embedding', [])
+    except Exception as e:
+        print(f"[EMBED] Failed: {e}")
+        return []
+
 def _find_similar_solved(user_text: str, limit: int = 3) -> list:
-    """Find solved questions from the exercise bank most similar to user's message.
-    Uses keyword overlap scoring with topic bonus.
-    Returns list of dicts: [{text, topic, solution}, ...]
-    """
+    """Find solved questions from the exercise bank most similar to user's message using Embeddings and Jaccard fallback."""
     user_tokens = _tokenize_heb(user_text)
     if len(user_tokens) < 2:
         return []
@@ -570,18 +655,36 @@ def _find_similar_solved(user_text: str, limit: int = 3) -> list:
     if not solved:
         return []
 
+    user_emb = _get_embedding(user_text, "retrieval_query")
+
+    import math
+    def cosine_sim(v1, v2):
+        if not v1 or not v2: return 0.0
+        norm1 = sum(a*a for a in v1)
+        norm2 = sum(b*b for b in v2)
+        if norm1 == 0 or norm2 == 0: return 0.0
+        return sum(a*b for a, b in zip(v1, v2)) / math.sqrt(norm1 * norm2)
+
     scored = []
     for q in solved:
-        q_tokens = _tokenize_heb(q["text"])
-        overlap = user_tokens & q_tokens
-        if len(overlap) < 2:
-            continue
-        # Jaccard-like score (overlap / union), weighted by overlap size
-        union_size = len(user_tokens | q_tokens)
-        score = len(overlap) / union_size if union_size else 0
-        # Bonus for more absolute matches
-        score += len(overlap) * 0.05
-        scored.append((score, q))
+        q_emb = None
+        if q.get("embedding"):
+            try: q_emb = json.loads(q["embedding"])
+            except: pass
+            
+        score = 0.0
+        if user_emb and q_emb:
+            score = cosine_sim(user_emb, q_emb)
+        else:
+            q_tokens = _tokenize_heb(q["text"])
+            overlap = user_tokens & q_tokens
+            if len(overlap) >= 2:
+                union_size = len(user_tokens | q_tokens)
+                score = (len(overlap) / union_size) if union_size else 0
+                score += len(overlap) * 0.05
+        
+        if score > 0.1:
+            scored.append((score, q))
 
     scored.sort(key=lambda x: x[0], reverse=True)
     return [item[1] for item in scored[:limit]]
@@ -637,11 +740,15 @@ def _process_and_save_questions(questions: list, source: str, default_image_url:
         if solution:
             solved += 1
 
+        print(f"[EMBED] Generating vector...")
+        emb = _get_embedding(text)
+        emb_json = json.dumps(emb) if emb else ""
+
         # ── Classify difficulty ──
         difficulty = _classify_difficulty(text)
 
         # ── Save to DB ──
-        qid = db.save_question(text, topic, source, solution, image_url)
+        qid = db.save_question(text, topic, source, solution, image_url, embedding=emb_json)
         db.update_question(qid, difficulty=difficulty)
         saved += 1
         results.append({"id": qid, "text": text[:60], "status": "saved", "topic": topic, "has_solution": bool(solution)})
@@ -792,7 +899,7 @@ async def chat_stream(request: ChatRequest, req: Request):
     if not history_rows:
         learnings = db.get_learnings()
         if learnings:
-            learnings_text = "לקחים מתיקונים קודמים שחשוב לזכור:\n" + "\n".join(f"• {l}" for l in learnings)
+            learnings_text = "לקחים מתיקונים קודמים שחשוב לזכור:\n" + "\n".join(f"• {l['summary']}" for l in learnings)
             gemini_history = [
                 {"role": "user", "parts": [f"[זיכרון מערכת] {learnings_text}"]},
                 {"role": "model", "parts": ["הבנתי, אקח לקחים אלו בחשבון בתשובות הבאות."]},
@@ -816,18 +923,68 @@ async def chat_stream(request: ChatRequest, req: Request):
         yield f"data: {json.dumps({'conversation_id': conversation_id})}\n\n"
         full_response = ""
         try:
+            draft_text = ""
             for chunk in chat_session.send_message(message_to_send, stream=True):
                 try:
                     text = chunk.text
                     if text:
+                        draft_text += text
                         full_response += text
                         yield f"data: {json.dumps({'chunk': text})}\n\n"
                 except (ValueError, AttributeError):
                     pass
+            
+            # Now Verifier
+            yield f"data: {json.dumps({'chunk': '\\n\\n---\\n⏳ *מערכת ביקורת (Multi-Agent) מוודאת יחידות, פאזורים וזוויות...*\\n\\n'})}\n\n"
+            
+            verifier_prompt = (
+                "הנך בקר-על מתמטי (Multi-Agent Reflector).\n"
+                "קרא את השאלה המקורית ששאל המשתמש ואת הפתרון המוצע להלן שיוצר על ידי סוכן אחר.\n"
+                "חפש בפינצטה שגיאות מתמטיות קלות: טעויות אלגבריות, חישובי פאזורים מרוכבים בפייתון שלא הומרו כראוי מרדיאנים למעלות (cmath.polar משיב רדיאנים!), או שגיאות בהצבת הנתונים.\n\n"
+                f"שאלה: {user_text}\n"
+                f"פתרון מוצע: {draft_text}\n\n"
+                "אם הפתרון מושלם לחלוטין וללא שגיאות מעגל מתמטי כלשהו, השב אך ורק במילה המדויקת 'מאושר'. \n"
+                "אם עלית על טעות כלשהי, תפקידך לכתוב מחדש את כל הפתרון מההתחלה עד הסוף בצורה מתוקנת ומאומתת, התחל את תשובתך במילה 'תיקון:' ולאחר דאג שהיא תכיל את כל שלבי הפתרון בדומה למקור אך באופן הנכון."
+            )
+            v_resp = model.generate_content(verifier_prompt, stream=True)
+            v_text_acc = ""
+            is_approved = False
+            found_status = False
+            
+            for v_chunk in v_resp:
+                try:
+                    vt = v_chunk.text
+                    if not vt: continue
+                    v_text_acc += vt
+                    
+                    if not found_status:
+                        if len(v_text_acc) >= 5 or "מאושר" in v_text_acc:
+                            found_status = True
+                            if "מאושר" in v_text_acc[:20] and len(v_text_acc) < 50:
+                                is_approved = True
+                                yield f"data: {json.dumps({'chunk': '✅ *החישוב אומת בהצלחה ע\"י סוכן הבקרה!*'})}\n\n"
+                                break
+                            else:
+                                yield f"data: {json.dumps({'chunk': '🛠️ *זוהתה שגיאה בחישוב! הנה הפתרון המתוקן:*\\n\\n'})}\n\n"
+                                full_response += "\n\n---\n**תיקון מערכת:**\n"
+                                out_vt = v_text_acc
+                                if out_vt.startswith("תיקון:"):
+                                    out_vt = out_vt[len("תיקון:"):].lstrip()
+                                full_response += out_vt
+                                yield f"data: {json.dumps({'chunk': out_vt})}\n\n"
+                    else:
+                        full_response += vt
+                        yield f"data: {json.dumps({'chunk': vt})}\n\n"
+                except (ValueError, AttributeError):
+                    pass
+            
+            if is_approved:
+                full_response += "\n\n---\n✅ *החישוב אומת בהצלחה ע\"י סוכן הבקרה.*"
+
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
             return
-
+            
         db.save_message(conversation_id, "model", full_response)
         if is_new:
             db.update_conversation_title(conversation_id, user_text[:60] + ("..." if len(user_text) > 60 else ""))
@@ -1237,3 +1394,21 @@ async def upload_and_extract_pdf(file: UploadFile = File(...)):
 
 # Serve static files (HTML frontend) - must be last
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
+
+
+@app.get("/api/learnings")
+def api_get_learnings(request: Request):
+    """Get AI learnings."""
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return JSONResponse(db.get_learnings())
+
+@app.delete("/api/learnings/{learning_id}")
+def api_delete_learning(learning_id: int, request: Request):
+    """Delete an AI learning rule."""
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    db.delete_learning(learning_id)
+    return JSONResponse({"success": True})

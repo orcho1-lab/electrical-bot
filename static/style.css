@@ -1585,3 +1585,67 @@
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+    /* ========== REASONING UI ========== */
+    .reasoning-block {
+      margin: 14px 0;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: rgba(30,30,40,0.4);
+      overflow: hidden;
+      font-size: 13px;
+    }
+    .reasoning-block summary {
+      padding: 10px 14px;
+      cursor: pointer;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: rgba(0,0,0,0.15);
+      list-style: none; /* Hide default arrow in some browsers */
+      display: flex;
+      align-items: center;
+      transition: all 0.2s;
+    }
+    .reasoning-block summary::-webkit-details-marker { display: none; }
+    .reasoning-block summary::before {
+      content: '▶';
+      font-size: 10px;
+      margin-inline-end: 8px;
+      transition: transform 0.2s;
+    }
+    .reasoning-block[open] summary::before { transform: rotate(90deg); }
+    .reasoning-block[open] summary { color: var(--accent); border-bottom: 1px solid var(--border); }
+    .reasoning-block .reasoning-content {
+      padding: 12px 14px;
+      color: #a1a1aa;
+      font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .reasoning-block .reasoning-content pre {
+      background: none;
+      border: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    /* ========== QUESTION BANK SEARCH ========== */
+    .eb-search {
+      width: 95%; /* Better fit with padding */
+      max-width: 800px;
+      display: block;
+      margin: 16px auto;
+      padding: 14px 20px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.05);
+      color: #fff;
+      font-size: 15px;
+      transition: all 0.2s;
+    }
+    .eb-search:focus {
+      outline: none;
+      border-color: var(--accent);
+      background: rgba(255, 255, 255, 0.08);
+      box-shadow: 0 0 0 3px rgba(124, 106, 247, 0.15);
+    }

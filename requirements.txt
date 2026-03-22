@@ -7,3 +7,4 @@ psycopg2-binary
 google-cloud-storage
 PyJWT==2.8.0
 python-multipart==0.0.9
+bcrypt==4.1.3
