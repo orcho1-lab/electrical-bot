@@ -10,10 +10,10 @@
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
 
-  <!-- Inter font -->
+  <!-- Outfit font (replaces Inter) -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Marked.js for markdown -->
   <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
@@ -23,69 +23,77 @@
 <body>
 
 <!-- ===== LOGIN OVERLAY ===== -->
-<div id="login-overlay" style="display:none; position:fixed; inset:0; z-index:9999; align-items:center; justify-content:center; overflow:hidden; background: radial-gradient(ellipse at 30% 40%, rgba(99,60,200,0.35) 0%, transparent 55%), radial-gradient(ellipse at 75% 70%, rgba(20,150,210,0.28) 0%, transparent 50%), radial-gradient(ellipse at 60% 20%, rgba(59,130,246,0.2) 0%, transparent 45%), #080d1a;">
-  <!-- bokeh particles -->
-  <div style="position:absolute;inset:0;pointer-events:none;overflow:hidden">
-    <div style="position:absolute;width:320px;height:320px;border-radius:50%;background:radial-gradient(circle,rgba(124,106,247,0.18) 0%,transparent 70%);top:-60px;right:-80px;animation:bokeh1 8s ease-in-out infinite alternate"></div>
-    <div style="position:absolute;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(94,234,212,0.14) 0%,transparent 70%);bottom:60px;left:40px;animation:bokeh2 10s ease-in-out infinite alternate"></div>
-    <div style="position:absolute;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(59,130,246,0.18) 0%,transparent 70%);top:40%;left:60%;animation:bokeh1 12s ease-in-out infinite alternate-reverse"></div>
+<div id="login-overlay" class="auth-overlay" style="display:none;">
+  <div class="auth-bokeh-layer">
+    <div class="auth-orb auth-orb-1"></div>
+    <div class="auth-orb auth-orb-2"></div>
+    <div class="auth-orb auth-orb-3"></div>
   </div>
-  <div style="position:relative;background:rgba(20,22,40,0.72);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.1);border-radius:24px;padding:52px 44px;width:360px;text-align:center;box-shadow:0 32px 80px rgba(0,0,0,0.7),0 0 0 1px rgba(124,106,247,0.15);">
-    <div style="display:flex; gap:8px; margin-bottom:24px; background:rgba(255,255,255,0.05); padding:4px; border-radius:12px; border:1px solid rgba(255,255,255,0.1);">
-      <button id="auth-tab-login" onclick="setAuthMode('login')"
-        style="flex:1; padding:10px; border-radius:10px; border:none; background:#7c6af7; color:#fff; font-size:14px; font-weight:600; cursor:pointer; transition:all 0.2s;">כניסה</button>
-      <button id="auth-tab-register" onclick="setAuthMode('register')"
-        style="flex:1; padding:10px; border-radius:10px; border:none; background:transparent; color:rgba(255,255,255,0.5); font-size:14px; font-weight:600; cursor:pointer; transition:all 0.2s;">הרשמה</button>
+  <div class="auth-card">
+    <div class="auth-logo-mark">
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+        <path d="M14 2L24 8V20L14 26L4 20V8L14 2Z" stroke="#4f7bf8" stroke-width="1.5" fill="rgba(79,123,248,0.1)"/>
+        <path d="M14 7L9 10V16L14 19L19 16V10L14 7Z" fill="#4f7bf8" opacity="0.8"/>
+        <circle cx="14" cy="13" r="2.5" fill="white"/>
+      </svg>
+      <span class="auth-logo-text">מהט AI</span>
     </div>
 
-    <h2 id="login-title" style="color:#fff;margin:0 0 6px;font-size:24px;font-weight:700;letter-spacing:-0.3px;">ברוכים השבים</h2>
-    <p id="login-subtitle" style="color:rgba(255,255,255,0.45);margin:0 0 32px;font-size:14px;">הכנס אימייל וסיסמה כדי להמשיך</p>
-    
-    <div style="position:relative;margin-bottom:12px;">
-      <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:16px;pointer-events:none;">📧</span>
-      <input id="login-email" type="email" placeholder="אימייל" dir="ltr"
-        style="width:100%;box-sizing:border-box;padding:13px 16px 13px 16px;padding-right:42px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.06);color:#fff;font-size:16px;outline:none;transition:border-color 0.2s,box-shadow 0.2s;"
-        onfocus="this.style.borderColor='rgba(124,106,247,0.7)';this.style.boxShadow='0 0 0 3px rgba(124,106,247,0.15)'"
-        onblur="this.style.borderColor='rgba(255,255,255,0.1)';this.style.boxShadow='none'">
+    <div class="auth-tabs">
+      <button id="auth-tab-login" onclick="setAuthMode('login')"
+        style="flex:1;padding:10px;border-radius:8px;border:none;background:#4f7bf8;color:#fff;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.2s;font-family:inherit;">כניסה</button>
+      <button id="auth-tab-register" onclick="setAuthMode('register')"
+        style="flex:1;padding:10px;border-radius:8px;border:none;background:transparent;color:rgba(255,255,255,0.45);font-size:14px;font-weight:600;cursor:pointer;transition:all 0.2s;font-family:inherit;">הרשמה</button>
     </div>
-    <div style="position:relative;margin-bottom:12px;">
-      <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:16px;pointer-events:none;">🔒</span>
-      <input id="login-password" type="password" placeholder="סיסמה" dir="ltr"
-        style="width:100%;box-sizing:border-box;padding:13px 16px 13px 16px;padding-right:42px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.06);color:#fff;font-size:16px;outline:none;transition:border-color 0.2s,box-shadow 0.2s;"
-        onfocus="this.style.borderColor='rgba(124,106,247,0.7)';this.style.boxShadow='0 0 0 3px rgba(124,106,247,0.15)'"
-        onblur="this.style.borderColor='rgba(255,255,255,0.1)';this.style.boxShadow='none'">
+
+    <h2 id="login-title" class="auth-title">ברוכים השבים</h2>
+    <p id="login-subtitle" class="auth-subtitle">הכנס אימייל וסיסמה כדי להמשיך</p>
+
+    <div class="auth-field">
+      <svg class="auth-field-icon" viewBox="0 0 20 20" fill="none">
+        <path d="M2.5 6.5L10 11L17.5 6.5M3 5h14a1 1 0 011 1v8a1 1 0 01-1 1H3a1 1 0 01-1-1V6a1 1 0 011-1z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+      <input id="login-email" class="auth-input" type="email" placeholder="אימייל" dir="ltr" />
     </div>
-    <div id="login-code-wrapper" style="position:relative;margin-bottom:12px;display:none;">
-      <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:16px;pointer-events:none;">🔑</span>
-      <input id="login-code" type="text" placeholder="קוד הרשמה" dir="ltr"
-        style="width:100%;box-sizing:border-box;padding:13px 16px 13px 16px;padding-right:42px;border-radius:12px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.06);color:#fff;font-size:16px;outline:none;transition:border-color 0.2s,box-shadow 0.2s;"
-        onfocus="this.style.borderColor='rgba(124,106,247,0.7)';this.style.boxShadow='0 0 0 3px rgba(124,106,247,0.15)'"
-        onblur="this.style.borderColor='rgba(255,255,255,0.1)';this.style.boxShadow='none'">
+
+    <div class="auth-field">
+      <svg class="auth-field-icon" viewBox="0 0 20 20" fill="none">
+        <rect x="4" y="9" width="12" height="9" rx="1.5" stroke="currentColor" stroke-width="1.4"/>
+        <path d="M7 9V6.5a3 3 0 016 0V9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        <circle cx="10" cy="13.5" r="1" fill="currentColor"/>
+      </svg>
+      <input id="login-password" class="auth-input" type="password" placeholder="סיסמה" dir="ltr" />
     </div>
-    <div id="login-error" style="color:#f87171;font-size:13px;min-height:18px;margin-bottom:10px;"></div>
-    <button id="login-submit-btn" onclick="doLogin()"
-      style="width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#7c6af7,#5eead4);color:#fff;font-size:16px;font-weight:600;cursor:pointer;transition:opacity 0.2s,transform 0.15s;letter-spacing:0.3px;"
-      onmouseover="this.style.opacity='0.9';this.style.transform='translateY(-1px)'"
-      onmouseout="this.style.opacity='1';this.style.transform='translateY(0)'">
-      כניסה
-    </button>
+
+    <div id="login-code-wrapper" class="auth-field" style="display:none;">
+      <svg class="auth-field-icon" viewBox="0 0 20 20" fill="none">
+        <path d="M11 3a5 5 0 014.9 6.1L18 11.2l-1.5 1.5-1.2-1.2-1.5 1.5-1.5-1.5 1.2-1.2A5 5 0 1111 3zm0 2a3 3 0 100 6 3 3 0 000-6z" fill="currentColor" opacity="0.7"/>
+      </svg>
+      <input id="login-code" class="auth-input" type="text" placeholder="קוד הרשמה" dir="ltr" />
+    </div>
+
+    <div id="login-error" class="auth-error"></div>
+
+    <button id="login-submit-btn" class="auth-btn" onclick="doLogin()">כניסה</button>
   </div>
-  <style>
-    @keyframes bokeh1{from{transform:translate(0,0) scale(1)}to{transform:translate(30px,20px) scale(1.15)}}
-    @keyframes bokeh2{from{transform:translate(0,0) scale(1)}to{transform:translate(-20px,30px) scale(1.1)}}
-  </style>
 </div>
+
 <div id="overlay" onclick="closeSidebar()"></div>
+
 <div id="lightbox-overlay" onclick="if(event.target===this)this.classList.remove('active')">
   <img id="lightbox-img" src="" />
   <div class="lightbox-actions">
-    <button class="lightbox-btn" onclick="downloadLightboxImg()">💾 הורד תמונה</button>
+    <button class="lightbox-btn" onclick="downloadLightboxImg()">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 12l-4-4h2.5V2h3v6H12L8 12zm-5 2h10v1.5H3V14z"/></svg>
+      הורד תמונה
+    </button>
     <button class="lightbox-btn" onclick="document.getElementById('lightbox-overlay').classList.remove('active')">✕ סגור</button>
   </div>
 </div>
+
 <div id="delete-modal" onclick="if(event.target===this)closeDeleteModal()">
   <div class="delete-modal-box">
-    <h3>🗑️ מחיקת שיחה</h3>
+    <h3>מחיקת שיחה</h3>
     <p>השיחה תימחק לצמיתות. להמשיך?</p>
     <div class="delete-modal-btns">
       <button class="btn-cancel" onclick="closeDeleteModal()">ביטול</button>
@@ -93,12 +101,13 @@
     </div>
   </div>
 </div>
+
 <div id="toast-container"></div>
 
 <!-- Learnings Modal -->
 <div id="learnings-modal" class="modal-overlay" onclick="if(event.target===this)closeLearningsModal()">
   <div class="delete-modal-box" style="max-width:500px">
-    <h3>🧠 ניהול לקחי מערכת</h3>
+    <h3>ניהול לקחי מערכת</h3>
     <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">חוקי ברזל ו-Learnings שהבוט צבר ויזכור בכל תרגיל עתידי:</p>
     <div id="learnings-list" style="max-height:300px;overflow-y:auto;margin-bottom:16px;text-align:right;"></div>
     <div class="delete-modal-btns" style="justify-content:center">
@@ -111,7 +120,7 @@
 <div id="local-exam-picker-overlay" onclick="if(event.target===this)closeLocalExamPicker()">
   <div class="exam-picker">
     <div class="exam-picker-header">
-      <h3>📤 העלה PDF לחילוץ שאלות</h3>
+      <h3>העלה PDF לחילוץ שאלות</h3>
       <button class="exam-picker-close" onclick="closeLocalExamPicker()">&times;</button>
     </div>
     <div class="exam-picker-body" id="local-exam-picker-list">
@@ -119,9 +128,11 @@
            ondragover="event.preventDefault();this.classList.add('dragover')"
            ondragleave="this.classList.remove('dragover')"
            ondrop="handlePdfDrop(event)"
-           style="border:2px dashed rgba(99,102,241,0.4);border-radius:12px;padding:40px 20px;text-align:center;cursor:pointer;transition:all .2s;margin:16px">
-        <div style="font-size:2.5rem;margin-bottom:12px">📄</div>
-        <div style="font-size:1rem;color:var(--text-primary);font-weight:600;margin-bottom:6px">גרור PDF לכאן או לחץ לבחירה</div>
+           class="pdf-drop-zone">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" style="opacity:0.4;margin-bottom:12px">
+          <path d="M7 16.5L12 21.5L17 16.5M12 3.5V21.5M3 12.5H21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <div style="font-size:1rem;color:var(--text);font-weight:600;margin-bottom:6px">גרור PDF לכאן או לחץ לבחירה</div>
         <div style="font-size:0.8rem;color:var(--text-muted)">מקסימום 20MB · מבחנים ותרגילים בלבד</div>
       </div>
       <input type="file" id="pdf-file-input" accept=".pdf" style="display:none" onchange="handlePdfFileSelected(event)">
@@ -150,28 +161,49 @@
   <!-- SIDEBAR -->
   <div id="sidebar">
     <div id="sidebar-header">
-      <h2>⚡ היסטוריית שיחות</h2>
+      <div class="sidebar-brand">
+        <svg width="20" height="20" viewBox="0 0 28 28" fill="none">
+          <path d="M14 2L24 8V20L14 26L4 20V8L14 2Z" stroke="#4f7bf8" stroke-width="1.5" fill="rgba(79,123,248,0.12)"/>
+          <path d="M14 7L9 10V16L14 19L19 16V10L14 7Z" fill="#4f7bf8" opacity="0.9"/>
+          <circle cx="14" cy="13" r="2.5" fill="white"/>
+        </svg>
+        <span>מהט AI</span>
+      </div>
       <button id="new-chat-btn" onclick="newChat()">
-        <span>+</span> שיחה חדשה
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+          <path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        שיחה חדשה
       </button>
-      <input type="text" id="sidebar-search" placeholder="🔍 חיפוש שיחות..." oninput="filterConversations(this.value)" />
+      <input type="text" id="sidebar-search" placeholder="חיפוש שיחות..." oninput="filterConversations(this.value)" />
     </div>
     <div id="conversations-list"></div>
 
-    <!-- Logout & Learnings -->
-    <div style="padding:12px 16px; border-top:1px solid #222; margin-top:auto;">
-      <button onclick="openLearningsModal()" style="width:100%; padding:8px; border-radius:8px; border:1px solid #333; background:transparent; color:#fbbf24; font-size:13px; cursor:pointer; margin-bottom:8px;">
-        🧠 ניהול לקחים
+    <!-- Bottom actions -->
+    <div class="sidebar-footer">
+      <button onclick="openLearningsModal()" class="sidebar-footer-btn sidebar-footer-btn--amber">
+        <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
+          <path d="M10 2a6 6 0 015.66 8H16l-1.5 6H5.5L4 10h.34A6 6 0 0110 2z" stroke="currentColor" stroke-width="1.4"/>
+          <path d="M7 16h6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+        ניהול לקחים
       </button>
-      <button onclick="doLogout()" style="width:100%; padding:8px; border-radius:8px; border:1px solid #333; background:transparent; color:#888; font-size:13px; cursor:pointer;">
-        🚪 התנתק
+      <button onclick="doLogout()" class="sidebar-footer-btn">
+        <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
+          <path d="M8 3H4a1 1 0 00-1 1v12a1 1 0 001 1h4M13 14l3-4-3-4M16 10H7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        התנתק
       </button>
     </div>
 
     <!-- Question Bank -->
     <div id="qbank-section">
       <div id="qbank-toggle-btn" onclick="toggleQBank()">
-        📚 מאגר שאלות
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
+          <rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.4"/>
+          <path d="M7 8h6M7 11h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+        מאגר שאלות
         <span id="qbank-count-badge" style="display:none"></span>
       </div>
       <div id="qbank-panel" style="display:none">
@@ -188,14 +220,25 @@
   <!-- MAIN -->
   <div id="main">
     <div id="topbar">
-      <button id="menu-btn" onclick="toggleSidebar()">☰</button>
+      <button id="menu-btn" onclick="toggleSidebar()">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <path d="M2 4h14M2 9h14M2 14h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+      </button>
       <div id="topbar-info">
-        <div id="topbar-title">⚡ בוט לימוד חשמל</div>
+        <div id="topbar-title">
+          <svg width="16" height="16" viewBox="0 0 28 28" fill="none" style="flex-shrink:0">
+            <path d="M14 2L24 8V20L14 26L4 20V8L14 2Z" stroke="#4f7bf8" stroke-width="1.5" fill="rgba(79,123,248,0.1)"/>
+            <path d="M14 7L9 10V16L14 19L19 16V10L14 7Z" fill="#4f7bf8" opacity="0.9"/>
+            <circle cx="14" cy="13" r="2.5" fill="white"/>
+          </svg>
+          בוט לימוד חשמל
+        </div>
         <div id="topbar-subtitle">Gemini Pro</div>
       </div>
       <div class="tab-bar">
-        <button class="tab-btn active" onclick="switchTab('chat')" id="tab-chat">💬 צ'אט</button>
-        <button class="tab-btn" onclick="switchTab('exercises')" id="tab-exercises">📚 תרגילים</button>
+        <button class="tab-btn active" onclick="switchTab('chat')" id="tab-chat">צ׳אט</button>
+        <button class="tab-btn" onclick="switchTab('exercises')" id="tab-exercises">תרגילים</button>
       </div>
     </div>
 
@@ -206,13 +249,13 @@
     <!-- EXERCISE BANK TAB -->
     <div id="exercise-bank">
       <div class="eb-header">
-        <h2>📚 מאגר תרגילים</h2>
+        <h2>מאגר תרגילים</h2>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <input type="file" id="eb-upload-input" accept="image/*" style="display:none" onchange="ebUploadImage(event)" />
           <button id="eb-upload-btn-main" class="eb-upload-btn" onclick="document.getElementById('eb-upload-input').click()">📎 חלץ מתמונה</button>
           <button class="eb-upload-btn" onclick="openExamPicker()" style="background:rgba(37,99,235,0.15);color:#60a5fa;border:1px solid rgba(37,99,235,0.3)">📄 חלץ ממבחנים</button>
           <button class="eb-upload-btn" onclick="openLocalExamPicker()" style="background:rgba(6,182,212,0.12);color:#22d3ee;border:1px solid rgba(6,182,212,0.3)">📂 ייבא מקומי</button>
-          <button id="eb-batch-btn" class="eb-upload-btn" onclick="batchProcessQuestions()" style="background:rgba(34,197,94,0.12);color:#4ade80;border:1px solid rgba(34,197,94,0.3)">🧠 פתור הכל</button>
+          <button id="eb-batch-btn" class="eb-upload-btn" onclick="batchProcessQuestions()" style="background:rgba(34,197,94,0.12);color:#4ade80;border:1px solid rgba(34,197,94,0.3)">פתור הכל</button>
         </div>
       </div>
       <div id="eb-stats" class="eb-stats"></div>
@@ -221,15 +264,16 @@
       <div id="eb-content"></div>
     </div>
 
-    <button id="scroll-bottom-btn" onclick="scrollToBottom()">↓</button>
+    <button id="scroll-bottom-btn" onclick="scrollToBottom()">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M8 2v10M3 8l5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
 
     <div id="input-area">
-      <!-- Hidden file input — no capture attr so user can pick gallery OR camera -->
       <input type="file" id="image-input" accept="image/*" style="display:none" onchange="onImageSelected(event)" />
-      <!-- Hidden file input for correct solution upload -->
       <input type="file" id="correct-solution-input" accept="image/*" style="display:none" onchange="onCorrectSolutionSelected(event)" />
 
-      <!-- Image preview strip (shown when image is attached) -->
       <div id="image-preview-wrap">
         <img id="image-preview" src="" alt="תצוגה מקדימה" />
         <span id="image-preview-name"></span>
@@ -237,7 +281,11 @@
       </div>
 
       <div id="input-wrapper">
-        <button id="attach-btn" onclick="document.getElementById('image-input').click()" title="צרף תמונה">📎</button>
+        <button id="attach-btn" onclick="document.getElementById('image-input').click()" title="צרף תמונה">
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+            <path d="M17 11.5V15a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h3.5M13 3h4v4M10 10L17 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
         <textarea
           id="user-input"
           rows="1"
@@ -245,13 +293,21 @@
           onkeydown="handleKey(event)"
           oninput="autoResize(this)"
         ></textarea>
-        <button id="send-btn" onclick="sendMessage()" title="שלח">➤</button>
+        <button id="send-btn" onclick="sendMessage()" title="שלח">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M2 8h11M9 4l5 4-5 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
       </div>
-      <div id="input-hint" style="display:flex; justify-content:space-between; align-items:center; padding: 0 4px;">
-        <span>Enter לשליחה · Shift+Enter לשורה חדשה · 📎 לצרף תמונה</span>
-        <label style="color:#fbbf24; display:flex; align-items:center; gap:6px; cursor:pointer;" title="במצב זה הבוט ילמד אותך בעזרת שאלות מנחות במקום רק לזרוק פתרון">
-          <input type="checkbox" id="tutor-mode-toggle" style="accent-color:#fbbf24; width:16px; height:16px;">
-          🎓 מצב מורה פרטי (Tutor)
+
+      <div id="input-hint">
+        <span>Enter לשליחה · Shift+Enter לשורה חדשה</span>
+        <label class="tutor-toggle" title="במצב זה הבוט ילמד אותך בעזרת שאלות מנחות במקום רק לזרוק פתרון">
+          <input type="checkbox" id="tutor-mode-toggle">
+          <span class="tutor-toggle-track">
+            <svg width="11" height="11" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a6 6 0 015.66 8H16l-1.5 6H5.5L4 10h.34A6 6 0 0110 2z"/></svg>
+          </span>
+          מצב מורה פרטי
         </label>
       </div>
     </div>

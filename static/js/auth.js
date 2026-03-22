@@ -34,6 +34,8 @@
   async function doLogin() {
     const em = document.getElementById('login-email').value;
     const pw = document.getElementById('login-password').value;
+    const code = document.getElementById('login-code').value;
+    const errEl = document.getElementById('login-error');
     if (currentAuthMode === 'register' && !code) {
       errEl.textContent = 'נא להזין קוד הרשמה';
       return;
