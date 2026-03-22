@@ -247,7 +247,13 @@
         ></textarea>
         <button id="send-btn" onclick="sendMessage()" title="שלח">➤</button>
       </div>
-      <div id="input-hint">Enter לשליחה · Shift+Enter לשורה חדשה · 📎 לצרף תמונה</div>
+      <div id="input-hint" style="display:flex; justify-content:space-between; align-items:center; padding: 0 4px;">
+        <span>Enter לשליחה · Shift+Enter לשורה חדשה · 📎 לצרף תמונה</span>
+        <label style="color:#fbbf24; display:flex; align-items:center; gap:6px; cursor:pointer;" title="במצב זה הבוט ילמד אותך בעזרת שאלות מנחות במקום רק לזרוק פתרון">
+          <input type="checkbox" id="tutor-mode-toggle" style="accent-color:#fbbf24; width:16px; height:16px;">
+          🎓 מצב מורה פרטי (Tutor)
+        </label>
+      </div>
     </div>
   </div>
 

@@ -239,7 +239,8 @@
     try {
       const body = {
         message: text,
-        conversation_id: currentConvId
+        conversation_id: currentConvId,
+        tutor_mode: document.getElementById('tutor-mode-toggle')?.checked || false
       };
       if (imageToSend) {
         body.image_data = imageToSend.base64;

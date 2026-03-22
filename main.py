@@ -806,6 +806,7 @@ class ChatRequest(BaseModel):
     conversation_id: Optional[str] = None
     image_data: Optional[str] = None
     image_mime_type: Optional[str] = None
+    tutor_mode: bool = False
 
 
 class QuestionBody(BaseModel):
@@ -915,6 +916,16 @@ async def chat_stream(request: ChatRequest, req: Request):
 
     chat_session = model.start_chat(history=gemini_history)
     message_to_send = _build_message_parts(request)
+    
+    if request.tutor_mode:
+        from prompts import SOCRATIC_PROMPT_PREFIX, DATA_EXTRACTION_PROMPT
+        is_first_msg = len(history_rows) == 0
+        prompt_injection = DATA_EXTRACTION_PROMPT if (request.image_data and is_first_msg) else SOCRATIC_PROMPT_PREFIX
+        if isinstance(message_to_send, list):
+            message_to_send.append(prompt_injection)
+        else:
+            message_to_send = prompt_injection + "\n\n" + message_to_send
+            
     user_text = _user_text(request)
     db.save_message(conversation_id, "user", user_text)
     is_new = not history_rows
